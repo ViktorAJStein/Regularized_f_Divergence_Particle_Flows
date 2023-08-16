@@ -15,24 +15,27 @@ import scipy as sp
 from scipy.spatial.distance import pdist, squareform
 
 
-alpha = 1 # Tsallis parameter >= 1
-max_iter = 100001 # max number of iterations
+alpha = 1.5 # Tsallis parameter >= 1
 lambd = .01 # --> 0 means Tsallis flow, --> infty means MMD flow
 step_size = .001 # step size for Euler scheme
+max_time = 100 # maximal time horizon (i.e. simulate flow until T = max_time)
+iterations = int(max_time / step_size) + 1 # max number of iterations
 sigma = .3 # kernel parameter
-mode = 'primal' # solve the dual problem
+mode = 'primal' # decide whether to solve the primal or dual problem
 N = 100 # number of samples
 plot = True # decide whether to plot the particles
+new = 0 # parameter controlling if we use unbounded kernel metrizing W2
 
 np.random.seed(0) # fix randomness
 # mean and variance of prior and target distributions
 m_p, m_t = np.array([0, -2.25]), np.array([-1, -1])
-v_p, v_t = 1/20*np.array([[1, 0], [0, 2]]), 1/20*np.array([[2, 1], [1, 3]])
+v_p, v_t = 1/2000*np.array([[1, 0], [0, 2]]), 1/20*np.array([[2, 1], [1, 3]])
 prior = np.random.multivariate_normal(m_p, v_p, N)
 # prior = np.array([(k, 1) for k in np.linspace(-2, 2, N)])
 # prior = np.array([(4, 0) for k in range(N)])
 
-# multiple circles prior
+# multiple circles target
+#TODO: introduce parameter controlling number of rings
 Ntilde, r, _delta = int(N/2), 2, .25
 X = np.c_[r * np.cos(np.linspace(0, 2 * np.pi, Ntilde + 1)), r * np.sin(np.linspace(0, 2 * np.pi, Ntilde + 1))][:-1]
 for i in [1]: # for more circles, add more integers to this list
@@ -46,61 +49,88 @@ target = X
 prior_x, prior_y = prior.T
 target_x, target_y = target.T
 
-
 Y = prior.copy() # samples of prior distribution
 X = target # samples of target measure
 
 # Gaussian kernel with width sigma
 def gauss_kernel(x, y, s = sigma):
     d = x - y
-    return np.exp(- 1/(2 * s) * np.dot(d.T, d))
+    return np.exp(- 1/(2 * s) * np.dot(d.T, d)) 
+
+def modified_gauss_kernel(x, y, s = sigma):
+    d = x - y
+    x_squared = np.multiply(x, x)
+    y_squared = np.multiply(y, y)
+    return np.exp(- 1/(2 * s) * np.dot(d.T, d)) + np.dot(x_squared, y_squared)
+
+# derivative of Gaussian kernel    
+def gauss_kern_der(X, Y, s = sigma):
+    return - 1 / s * (X - Y) * gauss_kernel(X, Y, s) 
+
+# derivative of modified Gaussian kernel
+def mod_gauss_kern_der(X, Y, s = sigma):
+    X_squared = np.multiply(X, X)
+    return - 1 / s * (X - Y) * gauss_kernel(X, Y, s) + 2 * np. multiply(X_squared, Y)
 
 ## the following two kernels are taken from the KALE code (/kernel-wasserstein-flows/kernel_wasserstein_flows/kernels.py)
-def laplace_kernel(x, y, sigma):
-    return np.exp(-1 / sigma * np.abs(x - y).sum(axis=-1))
+def laplace_kernel(x, y, s = sigma):
+    return np.exp(-1 / s * np.abs(x - y).sum(axis=-1))
 
-# todo: make this psd
-def negative_distance_kernel(x, y, sigma):
-    return  -((x - y) ** 2).sum(axis=-1) / sigma
+# negative distance / Riesz / energy kernel
+def Riesz_kernel(x, y, s = 1, sigma = 1):
+    return (x**(2*s) + y**(2*s) - (x - y) ** (2*s)).sum(axis=-1) / sigma
 
+def inv_multiquadratic_kernel(x, y, p = 1, b = 1):
+    return 1 / ( ((x - y) ** 2).sum(axis=-1) + p )**b
 
 def reLU(x):
     return 1/2*(x + np.abs(x))
 
+# Tsallis and KL divergence generators and their derivatives
+def tsallis_Generator(x, alpha):
+    return np.choose(x >= 0, [np.inf, (x**alpha - alpha*x + alpha - 1)/(alpha - 1)])
+
+def tsallis_Generator_Der(x, alpha):
+    return np.choose(x >= 0, [np.inf, alpha / (alpha - 1) * ( x**(alpha - 1) - 1)])
+
+def kl_Generator(x):
+    return np.choose(x >= 0, [np.inf,np.choose(x > 0, [0, x*np.log(x)-x+1])])
+
+def kl_Generator_Der(x):
+    return np.choose(x > 0, [np.inf, np.log(x)])
+
 # the Tsallis entropy function f_alpha
 def entrop(x, alpha):
     if alpha != 1:
-        return (x**alpha - alpha*x + alpha - 1)/(alpha - 1)
+        return tsallis_Generator(x,alpha)
     else:
-       return x*np.log(x) - x + 1
+       return kl_Generator(x)
 
-# derivative of f_alpha    
+# derivative of f_alpha, f_alpha'    
 def entrop_der(x, alpha):
     if alpha != 1:
-        return alpha/(alpha - 1) * (x**(alpha - 1) - 1)
+        return tsallis_Generator_Der(x, alpha)
     else:
-        return np.log(x)
-# the conjugate f* of the entropy function f
+        return kl_Generator_Der(x)
+    
+# the conjugate f_alpha* of the entropy function f_alpha
 def conj(x, alpha):
     if alpha != 1:
-        return 1/alpha * (reLU((alpha - 1) * x + 1))**(alpha / (alpha - 1)) - 1/alpha
+        return reLU((alpha - 1)/alpha * x + 1)**(alpha / (alpha - 1)) - 1
     else:
         return np.exp(x) - 1
 
-# the derivative of f*    
+# the derivative of f_alpha*, (f_alpha^*)*    
 def conj_der(x, alpha):
     if alpha != 1:
-        return alpha/ (alpha - 1) * (reLU( (alpha - 1) / alpha * x + 1))**(1/(alpha - 1))
+        return reLU( (alpha - 1)/alpha * x + 1)**(1/(alpha - 1))
     else:
         return np.exp(x)
 
-# derivative of Gaussian kernel    
-def kern_der(X, Y, sigma):
-    return - 1 / sigma * (X - Y) * gauss_kernel(X, Y, sigma)
     
 
 # now start Tsallis-KALE particle descent
-for n in range(max_iter):
+for n in range(iterations):
     # concatenate sample of target and positions of particles in step n
     Z = np.append(X, Y, axis=0)
     M = len(Z)
@@ -123,8 +153,6 @@ for n in range(max_iter):
         x = np.concatenate( (conj_der(p[:N], alpha), - np.ones(N)), axis=0)
         return 1/N * K @ x + lambd * p
     
-    print(sp.optimize.check_grad( prim_objective, prim_jacobian, np.random.rand(2*N) ))
-    # this fails, i.e. is equal to around .01 ...
     
     # dual objective is an N-dimensional function
     def dual_objective(q):
@@ -169,47 +197,35 @@ for n in range(max_iter):
         if n > 1: # warm start
             prob = sp.optimize.minimize(dual_objective, q, jac=dual_jacobian, method='l-bfgs-b', tol=1e-9)
         else:
-            warm_start = np.zeros(N)
+            warm_start = np.ones(N)
             prob = sp.optimize.minimize(dual_objective, warm_start, jac=dual_jacobian, method='l-bfgs-b')
         q = prob.x
+        
+        
+        if np.any(q < 0):
+            print('Error: q is negative')
+            break
 
         # gradient update        
         h_star_grad = np.zeros((N, 2))
         for k in range(N):
             # TODO: vectorize the following line.
-            temp = [kern_der(Y[j], Y[k], sigma) - q[k] * kern_der(X[j], Y[k], sigma) for j in range(N)]
+            temp = [gauss_kern_der(Y[j], Y[k], sigma) - q[k] * gauss_kern_der(X[j], Y[k], sigma) for j in range(N)]
             h_star_grad[k,:] = 1/(lambd * N) * np.sum(temp, axis=0)
         Y = Y - step_size * (1 + lambd) * h_star_grad
         
-    
-    # K_psd = cp.psd_wrap(K) # make K numerically psd, even though it is theoretically psd    
-    
-    # # Solve primal convex M-dim problem for coefficients b
-    # b = cp.Variable(M) # variable of length M
-    # p = K_psd @ b
-    # c1 = 1/N * cp.sum(p[N:])
-    # c2 = - 1/N * cp.sum(conj(p[:N], alpha))
-    # c3 = cp.quad_form(b, K_psd) # b.T @ K_psd @ b
-
-    # prob = cp.Problem(cp.Minimize(- c1 - c2 + lambd/2 * c3))
-    # if n > 0:
-    #     prob.solve(warm_start=True, solver='ECOS') #verbose=True)
-    # else:
-    #     prob.solve()
-    # beta = b.value
-    
+        
     # gradient of optimal function h_n^* evaluated at Y_n^(k)
     
-    
-    # plot every 100-th image
-    if plot and not n % 100:
+    # plot the particles ten times per unit time interval
+    if plot and not n % int(1/(10*step_size)):
         Y_1, Y_2 = Y.T
         time = round(n*step_size, 1)
         plt.plot(Y_2, Y_1, '.', label = 'Particles at \n' + fr'$t =${time}')
-        plt.plot(target_y, target_x, '.', label = 'target') 
-        plt.plot(prior.T[1], prior.T[0], 'x', label = 'prior')
-        plt.legend(loc='center left')
-        plt.title('Tsallis-KALE particle flow solved via the ' + mode + ' problem with \n' + fr'$\alpha$ = {alpha}, $\lambda$ = {lambd}, $\tau$ = {step_size}, $N$ = {N} and Gauss kernel, $\sigma$ = {sigma}')
+        plt.plot(target_y, target_x, ',', label = 'target') 
+        # plt.plot(prior.T[1], prior.T[0], 'x', label = 'prior')
+        plt.legend(loc='center left', frameon = False)
+        plt.title('Tsallis-KALE particle flow solved via the ' + mode + ' problem with \n' + fr'$\alpha$ = {alpha}, $\lambda$ = {lambd}, $\tau$ = {step_size}, $N$ = {N} and Gauss kernel, $\sigma^2$ = {sigma}')
         plt.ylim([-2.5, 2.5])
         plt.xlim([-10, 2.5])
         plt.gca().set_aspect('equal')

@@ -10,21 +10,59 @@ Goal: use very small lambd to simulate approximate Tsallis flow
 """
 import numpy as np
 import matplotlib.pyplot as plt
-#import cvxpy as cp
+# import cvxpy as cp
 import scipy as sp
-from scipy.spatial.distance import pdist, squareform
+# from scipy.spatial.distance import pdist, squareform
+import os
+from PIL import Image # for gif creation
 
+def get_timestamp(file_name):
+    return int(file_name.split('-')[-1].split('.')[0])
 
-alpha = 1.5 # Tsallis parameter >= 1
-lambd = .01 # --> 0 means Tsallis flow, --> infty means MMD flow
-step_size = .001 # step size for Euler scheme
-max_time = 100 # maximal time horizon (i.e. simulate flow until T = max_time)
-iterations = int(max_time / step_size) + 1 # max number of iterations
-sigma = .3 # kernel parameter
+def create_gif(image_folder, output_gif):
+    images = []
+    for filename in sorted(os.listdir(image_folder), key=get_timestamp):
+        if filename.endswith(".png"):
+            img = Image.open(os.path.join(image_folder, filename))
+            images.append(img)
+            
+
+    if images:
+        images[0].save(
+            output_gif,
+            save_all=True,
+            append_images=images[1:],
+            duration=100,  # You can adjust the duration between frames (in milliseconds) here
+            loop=0  # 0 means infinite loop, change it to the number of loops you want
+        )
+        print(f"GIF saved as {output_gif}")
+    else:
+        print("No PNG images found in the folder.")
+
+def kernel_matrix(a, kernel):
+    result = []
+    for i in range(a.shape[1]):
+      current_result = []
+      for j in range(a.shape[1]):
+        x1 = a[:, i]
+        x2 = a[:, j]
+        current_result.append(kernel(x1, x2))
+    
+      result.append(current_result)
+    
+    return np.array(result)
+
+alpha = 7.5 # Tsallis parameter >= 1
+sigma = .05 # kernel parameter
 mode = 'primal' # decide whether to solve the primal or dual problem
 N = 100 # number of samples
-plot = True # decide whether to plot the particles
-new = 0 # parameter controlling if we use unbounded kernel metrizing W2
+#lambd = 1000 # --> 0 means Tsallis flow, --> infty means MMD flow
+lambd = .01
+#lambd = 1/np.sqrt(N) # (see bottom of p. 15 of KALE paper)
+step_size = np.round(.1 * lambd, 5) # step size for Euler scheme
+max_time = 5 # maximal time horizon (i.e. simulate flow until T = max_time)
+iterations = int(max_time / step_size) + 1 # max number of iterations
+
 
 np.random.seed(0) # fix randomness
 # mean and variance of prior and target distributions
@@ -32,7 +70,6 @@ m_p, m_t = np.array([0, -2.25]), np.array([-1, -1])
 v_p, v_t = 1/2000*np.array([[1, 0], [0, 2]]), 1/20*np.array([[2, 1], [1, 3]])
 prior = np.random.multivariate_normal(m_p, v_p, N)
 # prior = np.array([(k, 1) for k in np.linspace(-2, 2, N)])
-# prior = np.array([(4, 0) for k in range(N)])
 
 # multiple circles target
 #TODO: introduce parameter controlling number of rings
@@ -53,35 +90,51 @@ Y = prior.copy() # samples of prior distribution
 X = target # samples of target measure
 
 # Gaussian kernel with width sigma
-def gauss_kernel(x, y, s = sigma):
+def gauss(x, y, s = sigma):
     d = x - y
     return np.exp(- 1/(2 * s) * np.dot(d.T, d)) 
 
-def modified_gauss_kernel(x, y, s = sigma):
+def modified_Gauss(x, y, s = sigma):
     d = x - y
     x_squared = np.multiply(x, x)
     y_squared = np.multiply(y, y)
     return np.exp(- 1/(2 * s) * np.dot(d.T, d)) + np.dot(x_squared, y_squared)
 
 # derivative of Gaussian kernel    
-def gauss_kern_der(X, Y, s = sigma):
-    return - 1 / s * (X - Y) * gauss_kernel(X, Y, s) 
+def gauss_Der(X, Y, s = sigma):
+    return - 1 / s * (X - Y) * gauss(X, Y, s) 
 
 # derivative of modified Gaussian kernel
-def mod_gauss_kern_der(X, Y, s = sigma):
+def mod_Gauss_Der(X, Y, s = sigma):
     X_squared = np.multiply(X, X)
-    return - 1 / s * (X - Y) * gauss_kernel(X, Y, s) + 2 * np. multiply(X_squared, Y)
+    return - 1 / s * (X - Y) * gauss(X, Y, s) + 2 * np. multiply(X_squared, Y)
 
-## the following two kernels are taken from the KALE code (/kernel-wasserstein-flows/kernel_wasserstein_flows/kernels.py)
-def laplace_kernel(x, y, s = sigma):
-    return np.exp(-1 / s * np.abs(x - y).sum(axis=-1))
+def laplace(x, y, s = sigma):
+    return np.exp(- 1 / s * np.abs(x - y).sum(axis=-1))
 
 # negative distance / Riesz / energy kernel
-def Riesz_kernel(x, y, s = 1, sigma = 1):
+def riesz(x, y, s = 1/2, sigma = 1):
     return (x**(2*s) + y**(2*s) - (x - y) ** (2*s)).sum(axis=-1) / sigma
 
-def inv_multiquadratic_kernel(x, y, p = 1, b = 1):
-    return 1 / ( ((x - y) ** 2).sum(axis=-1) + p )**b
+def riesz_Der(x, y, s = 1/2, sigma = 1):
+    if s == 1/2:
+        return x / np.sqrt(np.dot(x, x)) + y / np.sqrt(np.dot(y, y)) - (x - y) / np.sqrt(np.dot(x - y, x - y))
+    else:
+        return (2*s) * ( x**(2 * s - 1) + y**(2 * s - 1) - (x - y)**(2 * s - 1)) 
+
+def inv_Multiquadratic(x, y, s = sigma, b = 1/2):
+    return ( ((x - y) ** 2).sum(axis=-1) + s )**(-b)
+
+def inv_Multiquadratic_Der(x, y, s = sigma, b = 1/2):
+    return - b * (((x - y) ** 2).sum(axis=-1) + s)**(-b-1) * (x - y)
+    
+def thin_Plate_Spline(x, y):
+    d = ((x - y) ** 2).sum(axis=-1)
+    return d*np.log(np.sqrt(d)) 
+
+def thin_Plate_Spline_Der(x,y):
+    d = np.sqrt(((x - y) ** 2).sum(axis=-1))
+    return 2*(x - y) * (np.log(d) + 1/2)
 
 def reLU(x):
     return 1/2*(x + np.abs(x))
@@ -94,7 +147,7 @@ def tsallis_Generator_Der(x, alpha):
     return np.choose(x >= 0, [np.inf, alpha / (alpha - 1) * ( x**(alpha - 1) - 1)])
 
 def kl_Generator(x):
-    return np.choose(x >= 0, [np.inf,np.choose(x > 0, [0, x*np.log(x)-x+1])])
+    return np.choose(x >= 0, [np.inf,np.choose(x > 0, [1, x*np.log(x)-x+1])])
 
 def kl_Generator_Der(x):
     return np.choose(x > 0, [np.inf, np.log(x)])
@@ -128,16 +181,38 @@ def conj_der(x, alpha):
         return np.exp(x)
 
     
+kern = inv_Multiquadratic
+kern_der = inv_Multiquadratic_Der
 
+kernel = kern.__name__
+folder_name = f"alpha={alpha},lambd={lambd},tau={step_size},{kernel},{sigma}"
+# Create the new folder in the current directory
+try:
+    os.mkdir(folder_name)
+    print(f"Folder '{folder_name}' created successfully.")
+except FileExistsError:
+    print(f"Folder '{folder_name}' already exists.")
+except Exception as e:
+    print(f"An error occurred: {e}.")
+    
+## TODO: this should be a function
 # now start Tsallis-KALE particle descent
 for n in range(iterations):
     # concatenate sample of target and positions of particles in step n
     Z = np.append(X, Y, axis=0)
     M = len(Z)
     
-    # Compute gram matrix of the kernel with samples Z
-    pairwise_dists = squareform(pdist(Z, 'euclidean'))
-    K = np.exp(- pairwise_dists ** 2 / sigma ** 2)
+    ## TODO: make this so we can use any kernel!!
+    ## Compute gram matrix of the kernel with samples Z
+    # pairwise_dists = squareform(pdist(Z, 'euclidean'))
+    # K = np.exp(- pairwise_dists ** 2 / sigma)
+    
+    # K = kernel_matrix(Z, kern)
+        
+    K = np.zeros((M, M))
+    for i in range(M):
+        for j in range(M):
+            K[i, j] = kern(Z[i,:], Z[j,:])
 
     
     # this is minus the value of the KALE objective, if you multiply it by (1 + lambd)
@@ -173,7 +248,6 @@ for n in range(iterations):
     if mode == 'primal':
         if n > 1: # warm start
             prob = sp.optimize.minimize(prim_objective, beta, jac=prim_jacobian, method='l-bfgs-b', tol=1e-9)
-            # yields " Bad direction in the line search"
         else:
             warm_start = np.concatenate((-1/(lambd*N) * np.ones(N), np.zeros(N)))
             prob = sp.optimize.minimize(prim_objective, warm_start, jac=prim_jacobian, method='l-bfgs-b')
@@ -183,11 +257,10 @@ for n in range(iterations):
         h_star_grad = np.zeros((N, 2))
         for k in range(N):
             # TODO: vectorize the following line.
-            temp = [beta[j] * (Y[k] - Z[j]) * K[k+N, j] for j in range(M)]
-            h_star_grad[k,:] = - 1/sigma * np.sum(temp, axis=0)
+            temp = [beta[j] * kern_der(Y[k], Z[j]) for j in range(M)]
+            # temp = [beta[j] * - 1/sigma * (Y[k] - Z[j]) * K[k+N, j] for j in range(M)]
+            h_star_grad[k,:] =  np.sum(temp, axis=0)
      
-        # plt.plot(beta)
-        # plt.show()
         # gradient update
         # when vectorized, gives UFuncTypeError: Cannot cast ufunc 'subtract' output from dtype('float64') to dtype('int32') with casting rule 'same_kind'
         
@@ -210,25 +283,31 @@ for n in range(iterations):
         h_star_grad = np.zeros((N, 2))
         for k in range(N):
             # TODO: vectorize the following line.
-            temp = [gauss_kern_der(Y[j], Y[k], sigma) - q[k] * gauss_kern_der(X[j], Y[k], sigma) for j in range(N)]
+            temp = [kern_der(Y[j], Y[k], sigma) - q[k] * kern_der(X[j], Y[k], sigma) for j in range(N)]
             h_star_grad[k,:] = 1/(lambd * N) * np.sum(temp, axis=0)
         Y = Y - step_size * (1 + lambd) * h_star_grad
         
-        
     # gradient of optimal function h_n^* evaluated at Y_n^(k)
     
+    
     # plot the particles ten times per unit time interval
-    if plot and not n % int(1/(10*step_size)):
+    if not n % int(1/(10*step_size)):
         Y_1, Y_2 = Y.T
         time = round(n*step_size, 1)
+        plt.figure()
         plt.plot(Y_2, Y_1, '.', label = 'Particles at \n' + fr'$t =${time}')
-        plt.plot(target_y, target_x, ',', label = 'target') 
+        plt.plot(target_y, target_x, '.', label = 'target') 
         # plt.plot(prior.T[1], prior.T[0], 'x', label = 'prior')
         plt.legend(loc='center left', frameon = False)
-        plt.title('Tsallis-KALE particle flow solved via the ' + mode + ' problem with \n' + fr'$\alpha$ = {alpha}, $\lambda$ = {lambd}, $\tau$ = {step_size}, $N$ = {N} and Gauss kernel, $\sigma^2$ = {sigma}')
+        plt.title('Tsallis-KALE particle flow solved via the ' + mode + ' problem, \n' + fr'$\alpha$ = {alpha}, $\lambda$ = {lambd}, $\tau$ = {step_size}, $N$ = {N},' + kernel + fr' $\sigma^2$ = {sigma}')
         plt.ylim([-2.5, 2.5])
         plt.xlim([-10, 2.5])
         plt.gca().set_aspect('equal')
-        plt.savefig(f'T{alpha}-KALE_flow,lambd={lambd},tau={step_size}_{time}.png', dpi=300)
-        plt.show()
-    
+        time_stamp = int(time*10)
+        plt.savefig(folder_name + f'/T{alpha}_KALE_flow,lambd={lambd},tau={step_size}-{time_stamp}.png', dpi=300)
+        plt.close()
+plt.show() # show final result
+output_name = f'T{alpha}-KALE_flow,lambd={lambd},tau={step_size},{kernel}{sigma}.gif'    
+create_gif(folder_name, output_name)
+
+

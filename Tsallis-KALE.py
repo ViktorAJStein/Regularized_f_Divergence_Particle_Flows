@@ -32,7 +32,7 @@ def create_gif(image_folder, output_gif):
             output_gif,
             save_all=True,
             append_images=images[1:],
-            duration=100,  # You can adjust the duration between frames (in milliseconds) here
+            duration=70,  # You can adjust the duration between frames (in milliseconds) here
             loop=0  # 0 means infinite loop, change it to the number of loops you want
         )
         print(f"GIF saved as {output_gif}")
@@ -52,7 +52,7 @@ def kernel_matrix(a, kernel):
     
     return np.array(result)
 
-alpha = 7.5 # Tsallis parameter >= 1
+alpha = 20 # Tsallis parameter >= 1
 sigma = .05 # kernel parameter
 mode = 'primal' # decide whether to solve the primal or dual problem
 N = 100 # number of samples
@@ -60,14 +60,14 @@ N = 100 # number of samples
 lambd = .01
 #lambd = 1/np.sqrt(N) # (see bottom of p. 15 of KALE paper)
 step_size = np.round(.1 * lambd, 5) # step size for Euler scheme
-max_time = 5 # maximal time horizon (i.e. simulate flow until T = max_time)
+max_time = 25 # maximal time horizon (i.e. simulate flow until T = max_time)
 iterations = int(max_time / step_size) + 1 # max number of iterations
 
 
 np.random.seed(0) # fix randomness
 # mean and variance of prior and target distributions
 m_p, m_t = np.array([0, -2.25]), np.array([-1, -1])
-v_p, v_t = 1/2000*np.array([[1, 0], [0, 2]]), 1/20*np.array([[2, 1], [1, 3]])
+v_p, v_t = 1/2000*np.array([[1, 0], [0, 1]]), 1/200*np.array([[1, 0], [0, 1]])
 prior = np.random.multivariate_normal(m_p, v_p, N)
 # prior = np.array([(k, 1) for k in np.linspace(-2, 2, N)])
 
@@ -109,23 +109,24 @@ def mod_Gauss_Der(X, Y, s = sigma):
     X_squared = np.multiply(X, X)
     return - 1 / s * (X - Y) * gauss(X, Y, s) + 2 * np. multiply(X_squared, Y)
 
-def laplace(x, y, s = sigma):
-    return np.exp(- 1 / s * np.abs(x - y).sum(axis=-1))
+# not differentiable!
+# def laplace(x, y, s = sigma):
+#     return np.exp(- 1 / s * np.abs(x - y).sum(axis=-1))
 
 # negative distance / Riesz / energy kernel
-def riesz(x, y, s = 1/2, sigma = 1):
+def riesz(x, y, s = 3/4, sigma = 1):
     return (x**(2*s) + y**(2*s) - (x - y) ** (2*s)).sum(axis=-1) / sigma
 
-def riesz_Der(x, y, s = 1/2, sigma = 1):
+def riesz_Der(x, y, s = 3/4, sigma = 1):
     if s == 1/2:
         return x / np.sqrt(np.dot(x, x)) + y / np.sqrt(np.dot(y, y)) - (x - y) / np.sqrt(np.dot(x - y, x - y))
     else:
         return (2*s) * ( x**(2 * s - 1) + y**(2 * s - 1) - (x - y)**(2 * s - 1)) 
 
-def inv_Multiquadratic(x, y, s = sigma, b = 1/2):
+def inv_Multiquadric(x, y, s = sigma, b = 1/2):
     return ( ((x - y) ** 2).sum(axis=-1) + s )**(-b)
 
-def inv_Multiquadratic_Der(x, y, s = sigma, b = 1/2):
+def inv_Multiquadric_Der(x, y, s = sigma, b = 1/2):
     return - b * (((x - y) ** 2).sum(axis=-1) + s)**(-b-1) * (x - y)
     
 def thin_Plate_Spline(x, y):
@@ -181,8 +182,8 @@ def conj_der(x, alpha):
         return np.exp(x)
 
     
-kern = inv_Multiquadratic
-kern_der = inv_Multiquadratic_Der
+kern = inv_Multiquadric
+kern_der = inv_Multiquadric_Der
 
 kernel = kern.__name__
 folder_name = f"alpha={alpha},lambd={lambd},tau={step_size},{kernel},{sigma}"
@@ -197,6 +198,8 @@ except Exception as e:
     
 ## TODO: this should be a function
 # now start Tsallis-KALE particle descent
+KALE_value = np.zeros(iterations) 
+
 for n in range(iterations):
     # concatenate sample of target and positions of particles in step n
     Z = np.append(X, Y, axis=0)
@@ -260,11 +263,13 @@ for n in range(iterations):
             temp = [beta[j] * kern_der(Y[k], Z[j]) for j in range(M)]
             # temp = [beta[j] * - 1/sigma * (Y[k] - Z[j]) * K[k+N, j] for j in range(M)]
             h_star_grad[k,:] =  np.sum(temp, axis=0)
-     
+ 
         # gradient update
         # when vectorized, gives UFuncTypeError: Cannot cast ufunc 'subtract' output from dtype('float64') to dtype('int32') with casting rule 'same_kind'
         
         Y = Y - step_size * (1 + lambd) * h_star_grad
+        
+        KALE_value[n] = - (1 + lambd) * prim_objective(beta)
     
     if mode == 'dual':
         if n > 1: # warm start
@@ -283,10 +288,12 @@ for n in range(iterations):
         h_star_grad = np.zeros((N, 2))
         for k in range(N):
             # TODO: vectorize the following line.
-            temp = [kern_der(Y[j], Y[k], sigma) - q[k] * kern_der(X[j], Y[k], sigma) for j in range(N)]
+            temp = [kern_der(Y[j], Y[k], sigma) - q[j] * kern_der(X[j], Y[k], sigma) for j in range(N)]
             h_star_grad[k,:] = 1/(lambd * N) * np.sum(temp, axis=0)
+
         Y = Y - step_size * (1 + lambd) * h_star_grad
-        
+        KALE_value[n] = (1 + lambd) * dual_objective(beta)
+
     # gradient of optimal function h_n^* evaluated at Y_n^(k)
     
     
@@ -295,18 +302,22 @@ for n in range(iterations):
         Y_1, Y_2 = Y.T
         time = round(n*step_size, 1)
         plt.figure()
-        plt.plot(Y_2, Y_1, '.', label = 'Particles at \n' + fr'$t =${time}')
+        plt.plot(Y_2, Y_1, 'x', label = 'Particles at \n' + fr'$t =${time}')
         plt.plot(target_y, target_x, '.', label = 'target') 
         # plt.plot(prior.T[1], prior.T[0], 'x', label = 'prior')
         plt.legend(loc='center left', frameon = False)
         plt.title('Tsallis-KALE particle flow solved via the ' + mode + ' problem, \n' + fr'$\alpha$ = {alpha}, $\lambda$ = {lambd}, $\tau$ = {step_size}, $N$ = {N},' + kernel + fr' $\sigma^2$ = {sigma}')
-        plt.ylim([-2.5, 2.5])
-        plt.xlim([-10, 2.5])
+        #plt.ylim([-2.5, 2.5])
+        #plt.xlim([-10, 2.5])
         plt.gca().set_aspect('equal')
         time_stamp = int(time*10)
         plt.savefig(folder_name + f'/T{alpha}_KALE_flow,lambd={lambd},tau={step_size}-{time_stamp}.png', dpi=300)
         plt.close()
 plt.show() # show final result
+plt.plot(range(iterations), KALE_value)
+plt.title('Tsallis-KALE objective value (Problem solved via the ' + mode + ' problem, \n' + fr'$\alpha$ = {alpha}, $\lambda$ = {lambd}, $\tau$ = {step_size}, $N$ = {N},' + kernel + fr' $\sigma^2$ = {sigma}')
+
+plt.show()
 output_name = f'T{alpha}-KALE_flow,lambd={lambd},tau={step_size},{kernel}{sigma}.gif'    
 create_gif(folder_name, output_name)
 

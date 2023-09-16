@@ -245,7 +245,7 @@ def DALE_flow(#prior, # initial configuration of particles
     #lambd = 1/np.sqrt(N) # (see bottom of p. 15 of KALE paper)
     #step_size = np.round(.1 * lambd, 5)
     alpha = 3
-    sigma = .01
+    sigma = .05
     N = 300
     lambd = .1
     step_size = .01
@@ -278,7 +278,7 @@ def DALE_flow(#prior, # initial configuration of particles
     
     
     if plot or gif or timeline:
-        folder_name = f"{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{N},{sigma},{mode},{max_time},{target_name}"
+        folder_name = f"{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{sigma},{N},{mode},{max_time},{target_name}"
         # Create the new folder in the current directory
         try:
             os.mkdir(folder_name)

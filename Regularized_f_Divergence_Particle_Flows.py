@@ -14,7 +14,8 @@ import scipy as sp
 import os
 from PIL import Image # for gif creation
 import time
-import warnings
+#import warnings
+import csv
 # from mpl_toolkits.mplot3d import Axes3D  # Import the 3D toolkit
 
 def get_timestamp(file_name):
@@ -243,15 +244,15 @@ def DALE_flow(#prior, # initial configuration of particles
     
     #lambd = 1/np.sqrt(N) # (see bottom of p. 15 of KALE paper)
     #step_size = np.round(.1 * lambd, 5)
-    alpha = 5
-    sigma = .05
-    N = 99
+    alpha = 3
+    sigma = .01
+    N = 300
     lambd = .1
     step_size = .01
     max_time = 100
     poster = True
     plot = True
-    arrows = True
+    arrows = False
     gif = True
     timeline = True
     d = 2
@@ -260,8 +261,8 @@ def DALE_flow(#prior, # initial configuration of particles
     mode = 'dual'
     # div_conj = tsallis_conj 
     # div_conj_der = tsallis_conj_der
-    div = jensen_shannon
-    div_der = jensen_shannon_der
+    div = tsallis
+    div_der = tsallis_der
     target_name = 'circles'
 
     iterations = int(max_time / step_size) + 1, # max number of iterations
@@ -409,8 +410,9 @@ def DALE_flow(#prior, # initial configuration of particles
                 start = time.time()
                 prob = sp.optimize.minimize(prim_objective, beta, jac=prim_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
                 end = time.time()
-                primal_times.append(end-start)
-                primal_iterations.append(prob.nit)
+                if timeline:
+                    primal_times.append(end-start)
+                    primal_iterations.append(prob.nit)
             else:
                 warm_start = np.concatenate((np.zeros(N), 1/(lambd*N) * np.ones(N)))
                 prob = sp.optimize.minimize(prim_objective, warm_start, jac=prim_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
@@ -432,8 +434,9 @@ def DALE_flow(#prior, # initial configuration of particles
                 start = time.time()
                 prob = sp.optimize.minimize(dual_objective, q, jac=dual_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
                 end = time.time()
-                dual_times.append(end-start)
-                dual_iterations.append(prob.nit)
+                if timeline:
+                    dual_times.append(end-start)
+                    dual_iterations.append(prob.nit)
             else:
                 warm_start = np.ones(N)
                 prob = sp.optimize.minimize(dual_objective, warm_start, jac=dual_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
@@ -473,12 +476,15 @@ def DALE_flow(#prior, # initial configuration of particles
         
         # plot the particles ten times per unit time interval
         if plot and not n % int(1/(10*step_size)):
+            
+
             Y_1, Y_2 = Y.T
             time1 = round(n*step_size, 1)
             plt.figure()
+            plt.plot(target_x, target_y, '.', color='orange')#, label = 'target') 
             for i in range(len(Y)):
                 point = Y[i]
-                plt.plot(point[0], point[1], 'x', c = 'b')
+                plt.plot(point[0], point[1], '.', c = 'b')
                 if arrows:
                     vector = - h_star_grad[i]
                     magnitude_v = np.linalg.norm(vector)
@@ -487,7 +493,6 @@ def DALE_flow(#prior, # initial configuration of particles
     
     
             # plt.plot(Y_1, Y_2, 'x') #, label = 'Particles at \n' + fr'$t =${time}')
-            plt.plot(target_x, target_y, '.', color='orange')#, label = 'target') 
             if not poster:
                 plt.plot([], [], ' ', label = fr't = {time1}') # Create empty plot with blank marker containing the extra label
                 # plt.plot(prior.T[1], prior.T[0], 'x', label = 'prior')
@@ -507,6 +512,10 @@ def DALE_flow(#prior, # initial configuration of particles
     end_time = time.time()
     elapsed_time = end_time - start_time
     
+    with open(f'{divergence}_DALE_value,{alpha},{lambd},{step_size},{kernel},{sigma},{mode},{N},{max_time}.csv', 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(DALE_value)
+    
     if gif:
         output_name = f'{divergence}{alpha}-DALE_flow,lambd={lambd},tau={step_size},{kernel},{sigma},{mode}.gif'    
         create_gif(folder_name, output_name)
@@ -517,16 +526,16 @@ def DALE_flow(#prior, # initial configuration of particles
         title1 = f'{divergence}-DALE objective value. Problem solved via the ' + mode + ' problem, \n'
         title2 = fr'$\alpha$ = {alpha}, $\lambda$ = {lambd}, $\tau$ = {step_size}, $N$ = {N},' + kernel + fr' kernel, $s =$ {sigma}'
         plt.title(title1 + title2)
-        plt.yscale('log')
+        #plt.yscale('log')
         plt.xlabel(r'time $t$')
         plt.ylabel(fr'{divergence}-DALE$^{{({lambd})}}(\mu \mid \nu)$')
         plt.savefig(folder_name + f'/{divergence}_DALE_value_timeline,{alpha},{lambd},{step_size},{kernel},{sigma},{mode}.png', dpi=300)
         plt.show()
     
     if mode == 'primal':
-        return DALE_value, elapsed_time, primal_times, primal_iterations 
+        return DALE_value, elapsed_time #, primal_times, primal_iterations 
     if mode == 'dual':
-        return DALE_value, elapsed_time, dual_times, dual_iterations
+        return DALE_value, elapsed_time #, dual_times, dual_iterations
     
     # L = np.array(range(n))
     # plt.plot(L, primal_times, label='primal')

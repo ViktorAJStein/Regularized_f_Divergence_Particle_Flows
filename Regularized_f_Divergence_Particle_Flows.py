@@ -244,11 +244,11 @@ def DALE_flow(#prior, # initial configuration of particles
     
     #lambd = 1/np.sqrt(N) # (see bottom of p. 15 of KALE paper)
     #step_size = np.round(.1 * lambd, 5)
-    alpha = 3
+    alpha = 5
     sigma = .05
     N = 300
-    lambd = .1
-    step_size = .01
+    lambd = .001
+    step_size = .0001
     max_time = 100
     poster = True
     plot = True
@@ -474,12 +474,11 @@ def DALE_flow(#prior, # initial configuration of particles
         
         ### TODO: plot the initial configuration
         
-        # plot the particles ten times per unit time interval
-        if plot and not n % int(1/(10*step_size)):
-            
+        time1 = round(n*step_size, 1)
 
+        # plot the particles ten times per unit time interval
+        if plot and not n % int(1/(10*step_size)): # time1 in [0.0, 1.0, 2.0, 10.0, 50.0, 100.0]:
             Y_1, Y_2 = Y.T
-            time1 = round(n*step_size, 1)
             plt.figure()
             plt.plot(target_x, target_y, '.', color='orange')#, label = 'target') 
             for i in range(len(Y)):

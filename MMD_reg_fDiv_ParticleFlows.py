@@ -203,8 +203,8 @@ def MMD_reg_f_div_flow():
         # prior_x, prior_y = prior.T[0], prior.T[1]
         target_x, target_y = target.T[0], target.T[1] 
         
-    Y = prior.clone()#.to("cuda") # samples of prior distribution
-    X = target#.to("cuda") # samples of target measure #print("Prior and target constructed")
+    Y = prior.clone().to("cuda") # samples of prior distribution
+    X = target.to("cuda") # samples of target measure #print("Prior and target constructed")
     
     p_end = time.time()
     print(f"Generating prior and target took {p_end - p_start} seconds")

@@ -11,12 +11,11 @@ import numpy as np
 from numpy import linalg as LA
 import matplotlib.pyplot as plt
 import scipy as sp
+from scipy.spatial.distance import pdist, squareform
 import os
 from PIL import Image # for gif creation
 import time
-#import warnings
 import csv
-# from mpl_toolkits.mplot3d import Axes3D  # Import the 3D toolkit
 
 def get_timestamp(file_name):
     return int(file_name.split('-')[-1].split('.')[0])
@@ -41,35 +40,8 @@ def create_gif(image_folder, output_gif):
     else:
         print("No PNG images found in the folder.")
 
-def kernel_matrix(a, kernel):
-    result = []
-    for i in range(a.shape[1]):
-      current_result = []
-      for j in range(a.shape[1]):
-        x1 = a[:, i]
-        x2 = a[:, j]
-        current_result.append(kernel(x1, x2))
-    
-      result.append(current_result)
-    
-    return np.array(result)
-
-
 
 np.random.seed(2) # fix randomness
-
-
-# ## case of one point, which is a 8x8 image
-# N = 1
-# S = 8
-# d = S*S # dimension
-# A = np.zeros((S, S))
-# A[2:3, ] = np.ones(S)
-# Y = A.reshape((N, d))
-# B = np.zeros((S, S))
-# B[6:7, 1:3] = np.ones(2)
-# X = B.reshape((N, d))
-
 
 # Gaussian kernel with width s
 def gauss(x, y, s):
@@ -93,9 +65,6 @@ def gauss_der(X, Y, s):
 #     x_squared = np.multiply(x, x)
 #     return 2 * np.multiply(x_squared, y) + gauss_der(x, y, s) 
 
-# not differentiable!
-# def laplace(x, y, s = sigma):
-#     return np.exp(- 1 / s * np.abs(x - y).sum(axis=-1))
 
 # negative distance / Riesz / energy kernel
 def riesz(x, y, s):
@@ -105,19 +74,11 @@ def riesz(x, y, s):
 def riesz_der(x, y, s):
     return 2 * s * LA.norm(y)**(2*s-2) * y - 2*s*LA.norm(x - y)**(2*s-2) * (x - y)
 
-def inv_multiquadric(x, y, s, b = 1/2):
+def inv_multiquadric(x, y, s = .05, b = 1/2):
     return ( ((x - y) ** 2).sum(axis=-1) + s )**(-b)
 
-def inv_multiquadric_der(x, y, s, b = 1/2):
-    return - b * (((x - y) ** 2).sum(axis=-1) + s)**(-b-1) * (x - y)
-    
-# def thin_plate_spline(x, y):
-#     d = ((x - y) ** 2).sum(axis=-1)
-#     return d*np.log(np.sqrt(d)) 
-
-# def thin_plate_spline_der(x,y):
-#     d = np.sqrt(((x - y) ** 2).sum(axis=-1))
-#     return 2*(x - y) * (np.log(d) + 1/2)
+def inv_multiquadric_der(x, y, s = .05, b = 1/2):
+    return - 2*b * (((x - y) ** 2).sum(axis=-1) + s)**(-b-1) * (x - y)
 
 def reLU(x):
     return 1/2*(x + np.abs(x))
@@ -241,15 +202,15 @@ def DALE_flow(#prior, # initial configuration of particles
                 times:         list of length iterations, time it took solving the minimization, in seconds
                 iteration:     list of length iterations, number of iterations it took solving the minimization, in seconds
     '''
-    
+    p_start = time.time()    
     #lambd = 1/np.sqrt(N) # (see bottom of p. 15 of KALE paper)
     #step_size = np.round(.1 * lambd, 5)
-    alpha = 5
+    alpha = 3
     sigma = .05
-    N = 300
+    N = 999
     lambd = .001
     step_size = .0001
-    max_time = 100
+    max_time = 10
     poster = True
     plot = True
     arrows = False
@@ -274,8 +235,6 @@ def DALE_flow(#prior, # initial configuration of particles
     kernel = kern.__name__
     divergence = div.__name__
     
-    #sigma = .501
-    
     
     if plot or gif or timeline:
         folder_name = f"{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{sigma},{N},{mode},{max_time},{target_name}"
@@ -295,10 +254,11 @@ def DALE_flow(#prior, # initial configuration of particles
     
     if target_name == 'circles': # multiple circles target
         #TODO: introduce parameter controlling number of rings. At the moment: 3 rings
-        Ntilde, r, _delta = int(N/3), 2, .25
-        X = np.c_[r * np.sin(np.linspace(0, 2 * np.pi, Ntilde + 1)), r * np.cos(np.linspace(0, 2 * np.pi, Ntilde + 1))][:-1]
+        Ntilde, r, delta = int(N/3), 2, .25
+        L = np.linspace(0, 2 * np.pi, Ntilde + 1)
+        X = np.c_[r * np.sin(L), r * np.cos(L)][:-1]
         for i in [1, 2]: # for more circles, add more integers to this list
-            X = np.r_[X, X[:Ntilde, :]-i*np.array([0, (2 + _delta) * r])]
+            X = np.r_[X, X[:Ntilde, :]-i*np.array([0, (2 + delta) * r])]
         target = X
         target[:, [0, 1]] = target[:, [1, 0]] # Exchange the columns
         
@@ -334,14 +294,6 @@ def DALE_flow(#prior, # initial configuration of particles
         m_p = np.array([4, 0])
         v_p = 1/2000*np.array([[1, 0], [0, 1]])
         prior = np.random.multivariate_normal(m_p, v_p, N)
-
-
-    
-    # one point example
-    # N = 1
-    # target = np.array([[0, 0, 1/2]])
-    # prior = np.array([[1/2, 0, 0]])
-    # d = len(prior[0])
     
     if d == 2:
         prior_x, prior_y = prior.T
@@ -349,7 +301,9 @@ def DALE_flow(#prior, # initial configuration of particles
     
     Y = prior.copy() # samples of prior distribution
     X = target # samples of target measure
-    
+    p_end = time.time()
+    print(f"Generating prior and target took {p_end - p_start} seconds")
+
         
     # now start particle descent
     # Keeping track of different values along the iterations
@@ -362,33 +316,37 @@ def DALE_flow(#prior, # initial configuration of particles
         dual_iterations = []
         
     iterations = int(iterations[0]) # reset iterations to be the int from the beginning
-        
-    start_time = time.time()
+      
+    
+    start = time.time()
     for n in range(iterations):
+        start_time = time.time()
         Z = np.append(X, Y, axis=0) # concatenate sample of target and positions of particles in step n
         M = len(Z)
         
-        # K = kernel_matrix(Z, kern)
-            
-        K = np.zeros((M, M))
-        for i in range(M):
-            for j in range(i, M):
-                K[i, j] = kern(Z[i,:], Z[j,:], s = sigma)
-                K[j, i] = K[i, j]
+
+        k_start = time.time()
+        dist = squareform(pdist(Z, 'euclidean'))
+        if kern == inv_multiquadric:
+            K = (sigma + dist**2)**(-1/2)
+        if kern == gauss:
+            K = np.exp(-dist**(2) / (2 * sigma)) # print("Kernel matrix computed")
+        k_end = time.time()
+        print(f"Kernel matrix computed in {k_end - k_start} seconds")
         
-        
+
         # this is minus the value of the DALE objective, if you multiply it by (1 + lambd)
-        def prim_objective(b):
-            p = K @ b        
-            c1 = np.concatenate( (div_conj(p[:N], alpha = alpha), - p[N:]))
-            c3 = b.T @ p
-            return 1/N * np.sum(c1) + lambd/2 * c3
+        # def prim_objective(b):
+        #     p = K @ b        
+        #     c1 = np.concatenate( (div_conj(p[:N], alpha = alpha), - p[N:]))
+        #     c3 = b.T @ p
+        #     return 1/N * np.sum(c1) + lambd/2 * c3
         
-        # jacobian of the above ojective function
-        def prim_jacobian(b):
-            p = K @ b
-            x = np.concatenate( (div_conj_der(p[:N], alpha = alpha), - np.ones(N)), axis=0)
-            return 1/N * K @ x + lambd * p
+        # # jacobian of the above ojective function
+        # def prim_jacobian(b):
+        #     p = K @ b
+        #     x = np.concatenate( (div_conj_der(p[:N], alpha = alpha), - np.ones(N)), axis=0)
+        #     return 1/N * K @ x + lambd * p
         
         
         # dual objective is an N-dimensional function
@@ -405,79 +363,70 @@ def DALE_flow(#prior, # initial configuration of particles
             linear_term = K[:N, :] @ tilde_q
             return 1/N * convex_term + 1/(lambd * N * N) * linear_term
             
-        if mode == 'primal':
-            if n > 0: # warm start
-                start = time.time()
-                prob = sp.optimize.minimize(prim_objective, beta, jac=prim_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
-                end = time.time()
-                if timeline:
-                    primal_times.append(end-start)
-                    primal_iterations.append(prob.nit)
-            else:
-                warm_start = np.concatenate((np.zeros(N), 1/(lambd*N) * np.ones(N)))
-                prob = sp.optimize.minimize(prim_objective, warm_start, jac=prim_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
-            beta = prob.x
+        # if mode == 'primal':
+        #     if n > 0: # warm start
+        #         start = time.time()
+        #         prob = sp.optimize.minimize(prim_objective, beta, jac=prim_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
+        #         end = time.time()
+        #         if timeline:
+        #             primal_times.append(end-start)
+        #             primal_iterations.append(prob.nit)
+        #     else:
+        #         warm_start = np.concatenate((np.zeros(N), 1/(lambd*N) * np.ones(N)))
+        #         prob = sp.optimize.minimize(prim_objective, warm_start, jac=prim_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
+        #     beta = prob.x
             
                     
-            h_star_grad = np.zeros((N, 2))
-            for k in range(N):
-                # TODO: In order to vectorize the following line, modify kern_der?
-                temp = [beta[j] * kern_der(Y[k], Z[j], s = sigma) for j in range(M)]
-                h_star_grad[k,:] = np.sum(temp, axis=0)
+        #     h_star_grad = np.zeros((N, 2))
+        #     for k in range(N):
+        #         # TODO: In order to vectorize the following line, modify kern_der?
+        #         temp = [beta[j] * kern_der(Y[k], Z[j], s = sigma) for j in range(M)]
+        #         h_star_grad[k,:] = np.sum(temp, axis=0)
             
-            # gradient update
-            Y = Y - step_size * (1 + lambd) * h_star_grad
-            DALE_value[n] = - (1 + lambd) * prob.fun
+        #     # gradient update
+        #     Y -= step_size * (1 + lambd) * h_star_grad
+        #     DALE_value[n] = - (1 + lambd) * prob.fun
+        
         
         if mode == 'dual':
+            sp_start = time.time()
             if n > 0: # warm start
-                start = time.time()
-                prob = sp.optimize.minimize(dual_objective, q, jac=dual_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
-                end = time.time()
-                if timeline:
-                    dual_times.append(end-start)
-                    dual_iterations.append(prob.nit)
+                warm_start = q 
             else:
                 warm_start = np.ones(N)
-                prob = sp.optimize.minimize(dual_objective, warm_start, jac=dual_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
-            q = prob.x
                 
-        
-            # gradient update        
+            prob = sp.optimize.minimize(dual_objective, warm_start, jac=dual_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
+            sp_end = time.time()
+            print(f"Scipy took {sp_end - sp_start} seconds")
+            if timeline:
+                dual_times.append(sp_end-sp_start)
+                dual_iterations.append(prob.nit)
+
+            q = prob.x
+            #plt.plot(q), plt.show()
+            
+            ### gradient update     
+            start2 = time.time()
+
             h_star_grad = np.zeros((N, d))
-            for k in range(N):
-                # TODO: vectorize the following line.
+            for k in range(N): # TODO: vectorize the following line.
                 temp = [kern_der(X[j], Y[k], sigma) - q[j] * kern_der(Y[j], Y[k], sigma) for j in range(N)]
                 h_star_grad[k,:] = 1/(lambd * N) * np.sum(temp, axis=0)
-            # plt.scatter(h_star_grad.T[0], h_star_grad.T[1], label='h_star_grad')
-            # plt.legend()
-            # plt.show()
+            # print(h_star_grad)
+            plt.scatter(h_star_grad.T[0], h_star_grad.T[1]), plt.show()
+            Y -= step_size * (1 + lambd) * h_star_grad
         
-            Y = Y - step_size * (1 + lambd) * h_star_grad
-            # plt.scatter(Y.T[0], Y.T[1], label='Y')
-            # plt.legend()
-            # plt.show()
+            end2 = time.time()
+            print(f"Gradient update took {end2-start2} seconds")
             
-            # if d == 3:
-            #     fig = plt.figure()
-            #     ax = fig.add_subplot(111, projection='3d')
-            #     ax.scatter(Y[:, 0], Y[:, 1], Y[:, 2], c='r', marker='o', s=100) 
-            #     ax.set_xlim(0, .5)  # Set X-axis limits from 0 to 5
-            #     ax.set_ylim(0, .5)  # Set Y-axis limits from 0 to 5
-            #     ax.set_zlim(0, .5)  # Set Z-axis limits from 0 to 5
-            # plt.imshow(Y, vmin=0, vmax=1/2)
-            # plt.colorbar()
-            # plt.show()
             DALE_value[n] = (1 + lambd) * prob.fun
-            
-        # gradient of optimal function h_n^* evaluated at Y_n^(k)
+
         
-        ### TODO: plot the initial configuration
-        
-        time1 = round(n*step_size, 1)
+        ### TODO: plot the initial configuration        
 
         # plot the particles ten times per unit time interval
-        if plot and not n % int(1/(10*step_size)): # time1 in [0.0, 1.0, 2.0, 10.0, 50.0, 100.0]:
+        if plot:# and not n % int(1/(10*step_size)): # time1 in [0.0, 1.0, 2.0, 10.0, 50.0, 100.0]:
+            time1 = round(n*step_size, 1)
             Y_1, Y_2 = Y.T
             plt.figure()
             plt.plot(target_x, target_y, '.', color='orange')#, label = 'target') 
@@ -486,7 +435,7 @@ def DALE_flow(#prior, # initial configuration of particles
                 plt.plot(point[0], point[1], '.', c = 'b')
                 if arrows:
                     vector = - h_star_grad[i]
-                    magnitude_v = np.linalg.norm(vector)
+                    # magnitude_v = np.linalg.norm(vector)
                     # Add an arrow from the point in the direction of the vector
                     plt.arrow(point[0], point[1], vector[0], vector[1], head_width=0.05, head_length=0.1, fc='k', ec='k', linewidth=.5)
     
@@ -498,16 +447,17 @@ def DALE_flow(#prior, # initial configuration of particles
                 plt.legend(frameon = False)
            
                 plt.title(f'{divergence}-DALE particle flow solved via the ' + mode + ' problem, \n' + fr'$\alpha$ = {alpha}, $\lambda$ = {lambd}, $\tau$ = {step_size}, $N$ = {N}, ' + kernel + fr' $s =$ {sigma}')
-            # if target_name == 'circles':
-            #     plt.ylim([-2.5, 2.5])
-            #     plt.xlim([-14, 2.5])
+            if target_name == 'circles':
+                plt.ylim([-3.5, 3.5])
+                plt.xlim([-12, 2.5])
             plt.gca().set_aspect('equal')
             plt.axis('off')
             
             time_stamp = int(time1*10)
-            plt.savefig(folder_name + f'/{divergence}{alpha}_DALE_flow,lambd={lambd},tau={step_size},{target_name}-{time_stamp}.png', dpi=300)
+            plt.savefig(folder_name + f'/{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{sigma},{N},{mode},{max_time},{target_name}-{time_stamp}.png', dpi=300)
             plt.show()
             plt.close()
+            
     end_time = time.time()
     elapsed_time = end_time - start_time
     
@@ -516,7 +466,7 @@ def DALE_flow(#prior, # initial configuration of particles
         writer.writerow(DALE_value)
     
     if gif:
-        output_name = f'{divergence}{alpha}-DALE_flow,lambd={lambd},tau={step_size},{kernel},{sigma},{mode}.gif'    
+        output_name = f'{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{sigma},{N},{mode},{max_time},{target_name}.gif'    
         create_gif(folder_name, output_name)
     
     if timeline:

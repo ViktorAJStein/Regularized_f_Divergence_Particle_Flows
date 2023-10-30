@@ -171,6 +171,12 @@ def tv(x, alpha):
 def tv_der(x, alpha):
     return np.choose(x >= 0, [np.inf, np.sign(x - 1)])
 
+def tv_conj(y, alpha):
+    return np.choose(y <= 1, [np.inf, np.max(y, - 1)])
+
+def tv_conj_der(y, alpha):
+    return np.choose(np.abs(y) <= 1, [0, 1])
+
 
 
 def DALE_flow(#prior, # initial configuration of particles
@@ -220,8 +226,8 @@ def DALE_flow(#prior, # initial configuration of particles
     kern = inv_multiquadric
     kern_der = inv_multiquadric_der
     mode = 'dual'
-    # div_conj = tsallis_conj 
-    # div_conj_der = tsallis_conj_der
+    div_conj = tsallis_conj 
+    div_conj_der = tsallis_conj_der
     div = tsallis
     div_der = tsallis_der
     target_name = 'circles'
@@ -307,19 +313,20 @@ def DALE_flow(#prior, # initial configuration of particles
         
     # now start particle descent
     # Keeping track of different values along the iterations
-    DALE_value = np.zeros(iterations) # objective value during the algorithm
-    if mode == 'primal':
-        primal_times = []
-        primal_iterations = []
-    if mode == 'dual':
-        dual_times = []
-        dual_iterations = []
+    # DALE_value = np.zeros(iterations) # objective value during the algorithm
+    # if mode == 'primal':
+    #     primal_times = []
+    #     primal_iterations = []
+    # if mode == 'dual':
+    #     dual_times = []
+    #     dual_iterations = []
         
     iterations = int(iterations[0]) # reset iterations to be the int from the beginning
       
     
     start = time.time()
     for n in range(iterations):
+        print(f'--------------------------- Iteration {n} ---------------------------')
         start_time = time.time()
         Z = np.append(X, Y, axis=0) # concatenate sample of target and positions of particles in step n
         M = len(Z)
@@ -336,17 +343,17 @@ def DALE_flow(#prior, # initial configuration of particles
         
 
         # this is minus the value of the DALE objective, if you multiply it by (1 + lambd)
-        # def prim_objective(b):
-        #     p = K @ b        
-        #     c1 = np.concatenate( (div_conj(p[:N], alpha = alpha), - p[N:]))
-        #     c3 = b.T @ p
-        #     return 1/N * np.sum(c1) + lambd/2 * c3
+        def prim_objective(b):
+            p = K @ b        
+            c1 = np.concatenate( (div_conj(p[:N], alpha = alpha), - p[N:]))
+            c3 = b.T @ p
+            return 1/N * np.sum(c1) + lambd/2 * c3
         
-        # # jacobian of the above ojective function
-        # def prim_jacobian(b):
-        #     p = K @ b
-        #     x = np.concatenate( (div_conj_der(p[:N], alpha = alpha), - np.ones(N)), axis=0)
-        #     return 1/N * K @ x + lambd * p
+        # jacobian of the above ojective function
+        def prim_jacobian(b):
+            p = K @ b
+            x = np.concatenate( (div_conj_der(p[:N], alpha = alpha), - np.ones(N)), axis=0)
+            return 1/N * K @ x + lambd * p
         
         
         # dual objective is an N-dimensional function
@@ -364,62 +371,75 @@ def DALE_flow(#prior, # initial configuration of particles
             return 1/N * convex_term + 1/(lambd * N * N) * linear_term
             
         # if mode == 'primal':
-        #     if n > 0: # warm start
-        #         start = time.time()
-        #         prob = sp.optimize.minimize(prim_objective, beta, jac=prim_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
-        #         end = time.time()
-        #         if timeline:
-        #             primal_times.append(end-start)
-        #             primal_iterations.append(prob.nit)
-        #     else:
-        #         warm_start = np.concatenate((np.zeros(N), 1/(lambd*N) * np.ones(N)))
-        #         prob = sp.optimize.minimize(prim_objective, warm_start, jac=prim_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
-        #     beta = prob.x
+        if n == 0: # warm start
+            # start = time.time()
+            warm_start = np.concatenate((np.zeros(N), 1/(lambd*N) * np.ones(N)))
+            # end = time.time()
+            # if timeline:
+            #     primal_times.append(end-start)
+            #     primal_iterations.append(prob.nit)
+        else:
+            warm_start = beta
+            
+        prob = sp.optimize.minimize(prim_objective, warm_start, method='l-bfgs-b', jac = prim_jacobian, options={'gtol': 1e-9})
+        beta = prob.x
             
                     
-        #     h_star_grad = np.zeros((N, 2))
-        #     for k in range(N):
-        #         # TODO: In order to vectorize the following line, modify kern_der?
-        #         temp = [beta[j] * kern_der(Y[k], Z[j], s = sigma) for j in range(M)]
-        #         h_star_grad[k,:] = np.sum(temp, axis=0)
-            
-        #     # gradient update
-        #     Y -= step_size * (1 + lambd) * h_star_grad
+        h_star_grad = np.zeros((N, 2))
+        for k in range(N):
+            # TODO: In order to vectorize the following line, modify kern_der?
+            temp = [beta[j] * kern_der(Y[k], Z[j], s = sigma) for j in range(M)]
+            h_star_grad[k,:] = np.sum(temp, axis=0)
+        
+        # gradient update
+        Y -= step_size * (1 + lambd) * h_star_grad
         #     DALE_value[n] = - (1 + lambd) * prob.fun
         
         
-        if mode == 'dual':
-            sp_start = time.time()
-            if n > 0: # warm start
-                warm_start = q 
-            else:
-                warm_start = np.ones(N)
-                
-            prob = sp.optimize.minimize(dual_objective, warm_start, jac=dual_jacobian, method='l-bfgs-b', options={'gtol': 1e-9})
-            sp_end = time.time()
-            print(f"Scipy took {sp_end - sp_start} seconds")
-            if timeline:
-                dual_times.append(sp_end-sp_start)
-                dual_iterations.append(prob.nit)
-
-            q = prob.x
-            #plt.plot(q), plt.show()
+        # if mode == 'dual':
+        sp_start = time.time()
+        if n > 0: # warm start
+            warm_start = q 
+        else:
+            warm_start = np.ones(N)
             
-            ### gradient update     
-            start2 = time.time()
+        prob = sp.optimize.minimize(dual_objective, warm_start, method='l-bfgs-b', jac = dual_jacobian, options={'gtol': 1e-15})
+        sp_end = time.time()
+        print(f"Scipy took {sp_end - sp_start} seconds")
+        # if timeline:
+        #     dual_times.append(sp_end-sp_start)
+        #     dual_iterations.append(prob.nit)
 
-            h_star_grad = np.zeros((N, d))
-            for k in range(N): # TODO: vectorize the following line.
-                temp = [kern_der(X[j], Y[k], sigma) - q[j] * kern_der(Y[j], Y[k], sigma) for j in range(N)]
-                h_star_grad[k,:] = 1/(lambd * N) * np.sum(temp, axis=0)
-            # print(h_star_grad)
-            plt.scatter(h_star_grad.T[0], h_star_grad.T[1]), plt.show()
-            Y -= step_size * (1 + lambd) * h_star_grad
+        q = prob.x
+        print(q.sum())
+        print(beta.sum())
         
-            end2 = time.time()
-            print(f"Gradient update took {end2-start2} seconds")
-            
-            DALE_value[n] = (1 + lambd) * prob.fun
+        plt.plot(beta, label='beta')
+        q_new = 1/lambd * 1/N * np.concatenate((-q, np.ones(N)))
+        plt.plot(q_new, label=r'$\frac{1}{\lambda N} [-q, 1]$')
+        plt.legend()
+        plt.title(f'Iteration {n}')
+        plt.savefig(folder_name + f'qVsbeta-{n}.png', dpi=300)
+        plt.show()
+
+
+        #plt.plot(q), plt.show()
+        
+        ### gradient update     
+        start2 = time.time()
+
+        # h_star_grad = np.zeros((N, d))
+        # for k in range(N): # TODO: vectorize the following line.
+        #     temp = [kern_der(X[j], Y[k], sigma) - q[j] * kern_der(Y[j], Y[k], sigma) for j in range(N)]
+        #     h_star_grad[k,:] = 1/(lambd * N) * np.sum(temp, axis=0)
+        # # print(h_star_grad)
+        # # plt.scatter(h_star_grad.T[0], h_star_grad.T[1]), plt.title('h_star_grad'), plt.show()
+        # Y -= step_size * (1 + lambd) * h_star_grad
+    
+        end2 = time.time()
+        print(f"Gradient update took {end2-start2} seconds")
+        
+        # DALE_value[n] = (1 + lambd) * prob.fun
 
         
         ### TODO: plot the initial configuration        

@@ -3,7 +3,7 @@ Wasserstein-2 MMD-reguaralized f-divergence particle flows
 
 This repository provides the method
 
-MMD_reg_f_div_flow (from the file MMD_reg_fDiv_ParticleFlows_CUDA.py)
+`MMD_reg_f_div_flow` (from the file `MMD_reg_fDiv_ParticleFlows_CUDA.py`)
 
 used to produces the numerical experiments for the paper
 

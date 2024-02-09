@@ -8,6 +8,7 @@ This repository provides the method
 used to produces the numerical experiments for the paper
 
 [Wasserstein Gradient Flows for Moreau Envelopes of f-Divergences in Reproducing Kernel Hilbert Spaces](https://arxiv.org/abs/2402.04613) (Sebastian Neumayer, Viktor Stein, Gabriele Steidl).
+This code is written and maintained by [Viktor Stein](https://viktorajstein.github.io/). Any comments and feedback are welcome!
 
 The required packages are
 

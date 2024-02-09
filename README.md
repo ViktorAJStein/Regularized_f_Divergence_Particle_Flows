@@ -7,7 +7,7 @@ MMD_reg_f_div_flow (from the file MMD_reg_fDiv_ParticleFlows_CUDA.py)
 
 used to produces the numerical experiments for the paper
 
-Wasserstein Gradient Flows for Moreau Envelopes of f-Divergences in Reproducing Kernel Hilbert Spaces (Sebastian Neumayer, Viktor Stein, Gabriele Steidl, https://arxiv.org/abs/2402.04613).
+[Wasserstein Gradient Flows for Moreau Envelopes of f-Divergences in Reproducing Kernel Hilbert Spaces](https://arxiv.org/abs/2402.04613) (Sebastian Neumayer, Viktor Stein, Gabriele Steidl).
 
 The required packages are
 

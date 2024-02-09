@@ -1,4 +1,4 @@
-Wasserstein-2 MMD-reguaralized f-divergence particle flows
+MMD-reguaralized f-divergence Wasserstein-2 particle flows
 =========================
 
 This repository provides the method
@@ -7,11 +7,11 @@ This repository provides the method
 
 used to produces the numerical experiments for the paper
 
-[Wasserstein Gradient Flows for Moreau Envelopes of f-Divergences in Reproducing Kernel Hilbert Spaces](https://arxiv.org/abs/2402.04613) (Sebastian Neumayer, Viktor Stein, Gabriele Steidl).
-This code is written and maintained by [Viktor Stein](https://viktorajstein.github.io/). Any comments and feedback are welcome!
+[Wasserstein Gradient Flows for Moreau Envelopes of f-Divergences in Reproducing Kernel Hilbert Spaces](https://arxiv.org/abs/2402.04613) by [Sebastian Neumayer](https://scholar.google.com/citations?user=NKL-mLgAAAAJ&hl=en&oi=ao), [Viktor Stein](https://viktorajstein.github.io/), and [Gabriele Steidl](https://page.math.tu-berlin.de/~steidl/).
+This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments and feedback are welcome!
 
 The required packages are
-
+---------------------------
 * torch
 * scipy
 * numpy

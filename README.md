@@ -30,4 +30,4 @@ The required packages are
 
 Feedback
 ---------------------------
-This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments and feedback are welcome!
+This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments and feedback are welcome! For questions and bug reports please contact the previously mentioned mail address.

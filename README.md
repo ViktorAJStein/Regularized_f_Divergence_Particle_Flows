@@ -28,6 +28,6 @@ The required packages are
 * pot 0.9.3 (if you want to evaluate the exact Wasserstein-2 loss along the flow)
 
 
-Feedback
+Feedback / Contact
 ---------------------------
-This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments and feedback are welcome! For questions and bug reports please contact the previously mentioned mail address.
+This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments, feedback, questions and bug reports are welcome!

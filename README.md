@@ -14,11 +14,12 @@ Scripts to exactly reproduce the figures in the preprint are soon to come. An ex
 
 The required packages are
 ---------------------------
-* torch
-* scipy
-* numpy
-* pillow (if you want to generate a gif of the evolution of the flow)
-* matplotlib
+* torch 2.1.2
+* scipy 1.12.0
+* numpy 1.26.3
+* pillow 10.2.0 (if you want to generate a gif of the evolution of the flow)
+* matplotlib 3.8.2
+* pot 0.9.3 (if you want to evaluate the exact Wasserstein-2 loss along the flow)
 
 
 Feedback

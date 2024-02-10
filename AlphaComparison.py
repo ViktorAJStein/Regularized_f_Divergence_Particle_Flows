@@ -1,8 +1,9 @@
 '''
 Example file of how to plot comparisons of the particle flows with the Tsallis-alpha divergence for different values of alpha
 '''
+from MMD_reg_fDiv_ParticleFlows_CUDA import *
 
-def this_main(
+def AlphaComparison(
     sigma = .5,
     step_size = 1e-1,
     max_time = 1000000,
@@ -113,4 +114,4 @@ def this_main(
         plt.savefig(f'{folder}/Reg_{diverg}_Div_W2_timeline,{step_size},{N},{kernel},{sigma},{max_time},{target_name}.png', dpi=300, bbox_inches='tight')
         plt.close()
    
-this_main()
+AlphaComparison()

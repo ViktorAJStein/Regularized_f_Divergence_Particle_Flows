@@ -8,7 +8,9 @@ This repository provides the method
 used to produces the numerical experiments for the paper
 
 [Wasserstein Gradient Flows for Moreau Envelopes of f-Divergences in Reproducing Kernel Hilbert Spaces](https://arxiv.org/abs/2402.04613) by [Sebastian Neumayer](https://scholar.google.com/citations?user=NKL-mLgAAAAJ&hl=en&oi=ao), [Viktor Stein](https://viktorajstein.github.io/), and [Gabriele Steidl](https://page.math.tu-berlin.de/~steidl/).
-This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments and feedback are welcome!
+
+The other python files contain auxillary functions.
+Scripts to exactly reproduce the figures in the preprint are soon to come. An example file is `AlphaComparison.py`.
 
 The required packages are
 ---------------------------
@@ -18,6 +20,7 @@ The required packages are
 * pillow (if you want to generate a gif of the evolution of the flow)
 * matplotlib
 
-The other python files contain auxillary functions.
 
-Scripts to exactly reproduce the figures in the preprint are soon to come. An example file is `AlphaComparison.py`.
+Feedback
+---------------------------
+This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments and feedback are welcome!

@@ -20,4 +20,4 @@ The required packages are
 
 The other python files contain auxillary functions.
 
-Scripts to exactly reproduce the figures in the preprint are soon to come.
+Scripts to exactly reproduce the figures in the preprint are soon to come. An example file is `AlphaComparison.py`.

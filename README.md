@@ -58,8 +58,8 @@ The following entropy functions each have an infinite recession constant if $\al
 
 Entropy              | Name                     | Expression $f(x)$ for $x \ge 0$
 ---------------------| -------------------------| ----------------------------------------------
-Kullback-Leibler     | 'tsallis', $\alpha = 1$  | $x \ln(x) - x + 1$ for $x > 0$.
-Tsallis-$\alpha$     | `tsallis`                | $\frac{x^{\alpha} - \alpha x + alpha - 1}{\alpha - 1}$
+Kullback-Leibler     | `tsallis`, $\alpha = 1$  | $x \ln(x) - x + 1$ for $x > 0$.
+Tsallis-$\alpha$     | `tsallis`                | $\frac{x^{\alpha} - \alpha x + \alpha - 1}{\alpha - 1}$
 Jeffreys             | `jeffreys`               | $(x - 1) \ln(x)$ for $x > 0$
 chi-$\alpha$         | `chi`                    | $| x - 1 |^{\alpha}$
 

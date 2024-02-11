@@ -36,6 +36,8 @@ Contents
 
 Required packages
 ---------------------------
+This scirpy requires the following Python packages. We tested the code with Python 3.11.7 and the following package versions:
+
 * torch 2.1.2
 * scipy 1.12.0
 * numpy 1.26.3
@@ -43,6 +45,9 @@ Required packages
 * matplotlib 3.8.2
 * pot 0.9.3 (if you want to evaluate the exact Wasserstein-2 loss along the flow)
 * warnings
+
+Usually code is also compatible with some later or earlier versions of those packages.
+
 
 Supported kernels
 ---------------------------

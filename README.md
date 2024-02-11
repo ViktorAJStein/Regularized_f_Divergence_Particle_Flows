@@ -52,6 +52,14 @@ Spline               | `compact` | $(1 - \| x - y \|_2)_+^{q + 2}$
 Spline               | `compact2`| $(1 - \| x - y \|_2)_+^(q + 3)  \left( (q + 3)*\| x - y \|__2 + 1 \right)$ 
 
 
+File/Folder        | Purpose
+------------------:| ------------------------------------------------------
+data_sets (dir)    | Contains data sets that matlab creates (initially empty)
+examples (dir)     | Code for creating the figures in the paper
+src (dir) 	       | Source code
+COPYING            | License information
+README.md          | This file
+startup.m          | Startup Matlab script
 
 Supported f-divergences / entropy functions
 ---------------------------

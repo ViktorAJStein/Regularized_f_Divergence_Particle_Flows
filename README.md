@@ -47,10 +47,27 @@ Kernel               | Name       | Expression $K(x, y) =$
 inverse multiquadric | `IMQ`      | $(\sigma + \| x - y \|^2)^{-\frac{1}{2}}$ 
 Gauss                | `gauss`    | $\exp\left(- \frac{1}{2 \sigma} \| x - y \|^2\right)$
 Matérn-$\frac{3}{2}$ | `Matern`   | $\left(1 + \frac{\sqrt{3} \| x - y \|}{\sigma}\right) \exp\left(- \frac{\sqrt{3} \| x - y \|}{\sigma}\right)$
-Matérn-$\frac{5}{2}$ | `Matern2`  | $\left(1 + \frac{\sqrt{5} \| x - y \|}{\sigma} + \frac{5 \| x - y \|}{3 \sigma^2} \right) \exp\left(- \frac{\sqrt{5} \| x - y \|}{\sigma}\right)$
+Matérn-$\frac{5}{2}$ | `Matern2`  | $\left(1 + \frac{\sqrt{5} \| x - y \|}{\sigma} + \frac{5 \| x - y \|^2}{3 \sigma^2} \right) \exp\left(- \frac{\sqrt{5} \| x - y \|}{\sigma}\right)$
 Spline               | `compact`  | $(1 - \| x - y \|)_{+}^{q + 2}$
 Another Spline       | `compact2` | $(1 - \| x - y \|)_{+}^{q + 3} \left( (q + 3) \| x - y \| + 1 \right)$ 
 
 
 Supported f-divergences / entropy functions
 ---------------------------
+The following entropy functions each have an infinite recession constant if $\alpha > 1.
+
+Entropy              | Name                     | Expression $f(x)$ for $x \ge 0$
+---------------------| -------------------------| ----------------------------------------------
+Kullback-Leibler     | 'tsallis', $\alpha = 1$  | $x \ln(x) - x + 1$ for $x > 0$.
+Tsallis-$\alpha$     | `tsallis`                | $\frac{x^{\alpha} - \alpha x + alpha - 1}{\alpha - 1}$
+Jeffreys             | `jeffreys`               | $(x - 1) \ln(x)$ for $x > 0$
+chi-$\alpha$         | `chi`                    | $| x - 1 |^{\alpha}$
+
+Below we list some other implemented entropy functions with finite recession constant. For even more entropy functions we refer to table 1 in the above mentioned preprint.
+
+Entropy              | Name             | Expression $f(x)$ for $x \ge 0$
+---------------------| -----------------| ----------------------------------------------
+Burg                 | `reverse_kl`     | $x - 1 - \ln(x)$ for $x > 0$
+Jensen-Shannon       | `jensen_shannon` | $\log(x) - (x + 1) \ln\left(\frac{x+1}{2}\right)$ for $x > 0$
+reverse Pearson      | `reverse_pearson`| $\frac{1}{x} - 1$ for $x > 0$
+total variation      | `tv`             | $| x - 1 |$

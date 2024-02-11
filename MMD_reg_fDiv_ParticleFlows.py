@@ -7,7 +7,6 @@ import numpy as np
 import scipy as sp
 import matplotlib
 import matplotlib.pyplot as plt
-from line_profiler import LineProfiler
 from kernels import *
 from adds import *
 from entropies import *

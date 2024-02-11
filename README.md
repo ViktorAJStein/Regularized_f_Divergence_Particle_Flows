@@ -22,7 +22,19 @@ If you use this code please cite this paper.
 The other python files contain auxillary functions.
 Scripts to exactly reproduce the figures in the preprint are soon to come. An example file is `AlphaComparison.py`.
 
-The required packages are
+
+Feedback / Contact
+---------------------------
+This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments, feedback, questions and bug reports are welcome!
+
+Contents
+---------------------------
+1. Required packages
+2. Supported kernels
+3. Supported f-divergences / entropy functions
+4. Supported targets
+
+Required packages
 ---------------------------
 * torch 2.1.2
 * scipy 1.12.0
@@ -31,11 +43,6 @@ The required packages are
 * matplotlib 3.8.2
 * pot 0.9.3 (if you want to evaluate the exact Wasserstein-2 loss along the flow)
 * warnings
-
-
-Feedback / Contact
----------------------------
-This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments, feedback, questions and bug reports are welcome!
 
 Supported kernels
 ---------------------------

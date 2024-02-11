@@ -71,3 +71,15 @@ Burg                 | `reverse_kl`     | $x - 1 - \ln(x)$ for $x > 0$
 Jensen-Shannon       | `jensen_shannon` | $\log(x) - (x + 1) \ln\left(\frac{x+1}{2}\right)$ for $x > 0$
 reverse Pearson      | `reverse_pearson`| $\frac{1}{x} - 1$ for $x > 0$
 total variation      | `tv`             | $| x - 1 |$
+
+Supported targets
+---------------------------
+* `two_lines`: the two parabolas in the gif at the top
+*  `circles`: three circles
+<p align="center">
+  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/Circles.gif" width="500" /> 
+</p>
+* `cross`: four versions of Neals funnel arranged in a cross shape
+<p align="center">
+  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/Cross.gif" width="500" /> 
+</p>

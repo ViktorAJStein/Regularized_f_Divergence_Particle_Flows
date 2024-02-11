@@ -11,7 +11,7 @@ References
 ---------------------------
 This repository provides the method
 
-`MMD_reg_f_div_flow` (from the file `[MMD_reg_fDiv_ParticleFlows.py](https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/MMD_reg_fDiv_ParticleFlows.py)`)
+`MMD_reg_f_div_flow` (from the file [`MMD_reg_fDiv_ParticleFlows.py`](https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/MMD_reg_fDiv_ParticleFlows.py))
 
 used to produce the numerical experiments for the paper
 

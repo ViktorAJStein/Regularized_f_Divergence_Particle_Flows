@@ -3,6 +3,8 @@ MMD-reguaralized f-divergence Wasserstein-2 particle flows
 
 A python script to evaluate and plot the discretized Wasserstein-2 gradient flow starting at an empirical measure with respect to an MMD-regularized f-divergence functional, whose target is an empirical measure as well.
 
+<img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/Bananas.gif" width="500" /> 
+
 References
 ---------------------------
 This repository provides the method

@@ -11,7 +11,7 @@ References
 ---------------------------
 This repository provides the method
 
-`MMD_reg_f_div_flow` (from the file `MMD_reg_fDiv_ParticleFlows_CUDA.py`)
+`MMD_reg_f_div_flow` (from the file `[MMD_reg_fDiv_ParticleFlows.py](https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/MMD_reg_fDiv_ParticleFlows.py)`)
 
 used to produce the numerical experiments for the paper
 
@@ -30,6 +30,7 @@ The required packages are
 * pillow 10.2.0 (if you want to generate a gif of the evolution of the flow)
 * matplotlib 3.8.2
 * pot 0.9.3 (if you want to evaluate the exact Wasserstein-2 loss along the flow)
+* warnings
 
 
 Feedback / Contact

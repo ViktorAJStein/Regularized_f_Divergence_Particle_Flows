@@ -36,3 +36,19 @@ The required packages are
 Feedback / Contact
 ---------------------------
 This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments, feedback, questions and bug reports are welcome!
+
+Supported kernels
+---------------------------
+The following kernels all are radial and twice-differentiable, hence fulfilling all assumptions in the paper.
+
+Kernel               | Name    | Expression $K(x, y) =$
+--------------------:| --------| ----------------------------------------------
+inverse multiquadric | `IMQ`   | $(\sigma + \| x - y \|_2^2)^{-\frac{1}{2}}$ 
+
+* Gauss $K(x, y) = \exp\left(- \frac{1}{2 \sigma} \| x - y \|_2^2\right)$
+* Matérn-$\frac{3}{2}$ (`Matern`) $K(x, y) = (1 + \frac{\sqrt{3} \| x - y \|_2}{\sigma} \exp\left(- \frac{\sqrt{3} \| x - y \|_2}{sigma}\right)
+* Matérn-$\frac{5}{2}$ (`Matern2`) $K(x, y) = (1 + torch.sqrt(5*r) / sigma + 5*r/(3*sigma**2) ) * (- torch.sqrt(5*r) / sigma).exp()
+
+
+Supported f-divergences / entropy functions
+---------------------------

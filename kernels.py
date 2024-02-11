@@ -57,22 +57,3 @@ def compact2_der(x, y, q):
     diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return 1/2*diff*(q+3)*(q+4)*torch.nn.functional.relu(1 - r)**(q + 2)
-
-
-### these below do not yield sensible results, TPS is not PD    
-def thin_plate_spline(x, y, sigma):
-    tol=1e-16
-    r = ((x - y) ** 2).sum(axis=-1)**(1/2)
-    return r * torch.log(r**r + tol)
-
-def thin_plate_spline_der(x, y, sigma):
-    tol=1e-16
-    diff = x[:,None, :] - y[None,:, :]
-    r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
-    return 1/2*diff*(torch.log(r**2 + tol) + 1)
-    
-def squared_dot(x, y, sigma):
-    return 1/2*torch.dot(x,y)**2
-
-def squared_dot(x, y, sigma):
-    return y

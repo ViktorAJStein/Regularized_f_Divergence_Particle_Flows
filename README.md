@@ -40,16 +40,16 @@ This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berli
 Supported kernels
 ---------------------------
 The following kernels all are radial and twice-differentiable, hence fulfilling all assumptions in the paper.
-We denote the reLU by $(x)_+ := \max(x, 0)$.
+We denote the reLU by $(x)_+ := \max(x, 0)$ and the Euclidean norm by $\| \cdot \|_2$.
 
 Kernel               | Name      | Expression $K(x, y) =$
 --------------------:| ----------| ----------------------------------------------
 inverse multiquadric | `IMQ`     | $(\sigma + \| x - y \|_2^2)^{-\frac{1}{2}}$ 
 Gauss                | `gauss`   | $\exp\left(- \frac{1}{2 \sigma} \| x - y \|_2^2\right)$
 Matérn-$\frac{3}{2}$ | `Matern`  | $\left(1 + \frac{\sqrt{3} \| x - y \|_2}{\sigma}\right) \exp\left(- \frac{\sqrt{3} \| x - y \|_2}{sigma}\right)$
-Matérn-$\frac{5}{2}$ | `Matern2` | $\left(1 + \frac{\sqrt{5} \| x - y \|_2}{\sigma} + \frac{5*\| x - y \|_2}{3 \sigma^2} \right) \exp\left(- \frac{\sqrt{5} \| x - y \|_2}{\sigma}\right)$
-Spline               | `compact` | $(1 - \| x - y \|_2)_+^{q + 2}$
-Spline               | `compact2`| $(1 - \| x - y \|_2)_+^{q + 3} \left( (q + 3) \| x - y \|_2 + 1 \right)$ 
+Matérn-$\frac{5}{2}$ | `Matern2` | $\left(1 + \frac{\sqrt{5} \| x - y \|_2}{\sigma} + \frac{5 \| x - y \|_2}{3 \sigma^2} \right) \exp\left(- \frac{\sqrt{5} \| x - y \|_2}{\sigma}\right)$
+Spline               | `compact` | $(1 - \| x - y \|_2)_{+}^{q + 2}$
+Spline               | `compact2`| $(1 - \| x - y \|_2)_{+}^{q + 3} \left( (q + 3) \| x - y \|_2 + 1 \right)$ 
 
 
 Supported f-divergences / entropy functions

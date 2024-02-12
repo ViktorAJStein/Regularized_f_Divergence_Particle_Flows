@@ -66,7 +66,7 @@ Another Spline       | `compact2` | $(1 - \| x - y \|)_{+}^{q + 3} \left( (q + 3
 
 Supported f-divergences / entropy functions
 ---------------------------
-The following entropy functions each have an infinite recession constant if $\alpha > 1.
+The following entropy functions each have an infinite recession constant if $\alpha > 1$.
 
 Entropy              | Name                     | Expression $f(x)$ for $x \ge 0$
 ---------------------| -------------------------| ----------------------------------------------

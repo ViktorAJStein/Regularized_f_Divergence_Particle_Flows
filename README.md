@@ -87,10 +87,11 @@ total variation      | `tv`             | $\| x - 1 \|$
 Supported targets
 ---------------------------
 * `two_lines`: the two parabolas in the gif at the top
-*  `circles`: three circles
+* `circles`: three circles
 <p align="center">
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/Circles.gif" width="500" /> 
 </p>
+
 * `cross`: four versions of Neals funnel arranged in a cross shape
 <p align="center">
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/Cross.gif" width="500" /> 

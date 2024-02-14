@@ -17,7 +17,20 @@ used to produce the numerical experiments for the paper
 
 [Wasserstein Gradient Flows for Moreau Envelopes of f-Divergences in Reproducing Kernel Hilbert Spaces](https://arxiv.org/abs/2402.04613) by [Sebastian Neumayer](https://scholar.google.com/citations?user=NKL-mLgAAAAJ&hl=en&oi=ao), [Viktor Stein](https://viktorajstein.github.io/), and [Gabriele Steidl](https://page.math.tu-berlin.de/~steidl/).
 
-If you use this code please cite this paper.
+If you use this code please cite this preprint, preferably like this:
+```
+@unpublished{NSS24,
+ author = {Neumayer, Sebastian and Stein, Viktor and Steidl, Gabriele},
+ title = {Wasserstein Gradient Flows for Moreau Envelopes of $f$-Divergences in Reproducing Kernel Hilbert Spaces},
+ note = {ArXiv preprint},
+ volume = {arXiv:2402.04613},
+ year = {2024},
+ month = {Feb},
+ url = {https://arxiv.org/abs/2402.04613},
+ doi = {10.48550/arXiv.2402.04613}
+ }
+```
+
 
 The other python files contain auxillary functions.
 Scripts to exactly reproduce the figures in the preprint are soon to come. An example file is `AlphaComparison.py`.

@@ -81,12 +81,12 @@ Supported f-divergences / entropy functions
 ---------------------------
 The following entropy functions each have an infinite recession constant if $\alpha > 1$.
 
-Entropy              | Name                     | Expression $f(x)$ for $x \ge 0$
----------------------| -------------------------| ----------------------------------------------
-Kullback-Leibler     | `tsallis`, $\alpha = 1$  | $x \ln(x) - x + 1$ for $x > 0$.
-Tsallis-$\alpha$     | `tsallis`                | $\frac{x^{\alpha} - \alpha x + \alpha - 1}{\alpha - 1}$
-Jeffreys             | `jeffreys`               | $(x - 1) \ln(x)$ for $x > 0$
-chi-$\alpha$         | `chi`                    | $\| x - 1 \|^{\alpha}$
+Entropy              | Name                       | Expression \$f(x)\$ for \$x \ge 0\$
+---------------------| ---------------------------| ----------------------------------------------
+Kullback-Leibler     | `tsallis`, \$\alpha = 1\$  | \$x \ln(x) - x + 1\$ for \$x > 0\$.
+Tsallis-\$\alpha\$   | `tsallis`                  | \$\frac{x^{\alpha} - \alpha x + \alpha - 1}{\alpha - 1}\$
+Jeffreys             | `jeffreys`                 | \$(x - 1) \ln(x)\$ for \$x > 0\$
+chi-\$\alpha\$       | `chi`                      | \$\| x - 1 \|^{\alpha}\$
 
 Below we list some other implemented entropy functions with finite recession constant. For even more entropy functions we refer to table 1 in the above mentioned preprint.
 

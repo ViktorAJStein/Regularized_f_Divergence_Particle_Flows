@@ -1,12 +1,12 @@
 import os
 from warnings import warn
-from PIL import Image
 import torch
 import ot
 import numpy as np
 import scipy as sp
 import matplotlib
 import matplotlib.pyplot as plt
+from line_profiler import LineProfiler
 from kernels import *
 from adds import *
 from entropies import *
@@ -26,7 +26,6 @@ def MMD_reg_f_div_flow(
         max_time = 1,
         plot = True, # plot particles along the evolution
         arrows = False, # plots arrows at particles to show their gradients
-        gif = True, # produces gif showing the evolution of the particles
         timeline = True, # plots timeline of functional value along the iterative scheme
         d = 2, # dimension of the ambient space in which the particles live
         kern = IMQ,
@@ -59,7 +58,8 @@ def MMD_reg_f_div_flow(
     
     kernel = kern.__name__
     divergence = div.__name__
-    folder_name = f"{divergence},lambda={lambd},tau={step_size},{kernel},{sigma},{N},{max_time},{target_name}/{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{sigma},{N},{mode},{max_time},{target_name},state={st}"
+    # {divergence},lambda={lambd},tau={step_size},{kernel},{sigma},{N},{max_time},{target_name}/
+    folder_name = f"{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{sigma},{N},{mode},{max_time},{target_name},state={st}"
     make_folder(folder_name)
         
     # generate prior and target   
@@ -144,9 +144,9 @@ def MMD_reg_f_div_flow(
     for n in range(iterations):
         # plot the particles ten times per unit time interval
         time1 = round(n*step_size, 1)
-        X_cpu = X.cpu()
-        Y_cpu = Y.cpu()
         if plot and not n % 1000 or n in 100*np.arange(1, 10):
+            X_cpu = X.cpu()
+            Y_cpu = Y.cpu()
             plt.figure() 
             plt.plot(X_cpu[:, 1], X_cpu[:, 0], '.', color='orange', markersize = 2) # plot target
             plt.plot(Y_cpu[:, 1], Y_cpu[:, 0], '.', color='blue', markersize = 2) # plot particles
@@ -175,7 +175,9 @@ def MMD_reg_f_div_flow(
         kyy = kern(Y[:, None, :], Y[None, :, :], sigma)
         upper_row = torch.cat((kxx, kxy), dim=1)
         lower_row = torch.cat((kxy.t(), kyy), dim=1)
-        K = torch.cat((upper_row, lower_row), dim=0).cpu().numpy()
+        K = torch.cat((upper_row, lower_row), dim=0)
+        K = K.cpu()
+        K = K.numpy()
         
         ## calculate MMD(X, Y), W1 and W2 metric between particles and target
         MMD[n] = 1/(2 * N**2) * (kxx.sum() + kyy.sum() - 2 * kxy.sum())
@@ -307,10 +309,6 @@ def MMD_reg_f_div_flow(
         # save position of particles in every 100-th iteration (to conserve memory)
         if not n % 1000 or n in 100*np.arange(1, 10):
             torch.save(Y, f'{folder_name}/Y_at_{n}.pt')
-     
-    if gif:
-        output_name = f'/{divergence}{alpha}__flow,lambd={lambd},tau={step_size},{kernel},{sigma},{N},{max_time},{target_name}.gif'    
-        create_gif(folder_name, output_name)
     
     
     suffix = f',{lambd},{step_size},{N},{kernel},{sigma},{max_time},{target_name}'
@@ -386,3 +384,137 @@ def MMD_reg_f_div_flow(
         KALE_values = torch.tensor(np.array(KALE_values))
 
     return func_values, MMD, W2, KALE_values
+
+
+def this_main(
+    sigma = .5,
+    step_size = 1e-1,
+    max_time = 1,
+    lambd = 1e-0,
+    N = 300*3,
+    kern = IMQ,
+    kern_der = IMQ_der,
+    target_name = 'two_lines',
+    alphas = [3], #, 3/2, 2, 5/2, 3, 4, 5, 15/2, 10],
+    div = tsallis,
+    div_der = tsallis_der,
+    div_conj = tsallis_conj,
+    div_conj_der = tsallis_conj_der,
+    compute_W2 = False,
+    compute_KALE = False
+    ):
+    if div != tsallis and div != chi:
+        alpha = ''
+    kernel = kern.__name__
+    diverg = div.__name__
+    iterations = int(max_time / step_size)
+    # states = [0, 1, 2, 3 ,4]
+    L = len(alphas)
+    func_values = torch.zeros(L, iterations + 1)
+    MMD_values = torch.zeros(L, iterations + 1)
+    W2_values = torch.zeros(L, iterations + 1)
+    KALE_values = torch.zeros(L, iterations + 1)
+     
+    folder = f'{diverg},lambda={lambd},tau={step_size},{kernel},{sigma},{N},{max_time},{target_name}'
+    make_folder(folder)
+    
+    for k in range(L):
+      func_values[k, :], MMD_values[k, :], W2_values[k, :], KALE_values[k, :] = MMD_reg_f_div_flow(
+            div = div,
+            div_der = div_der,
+            div_conj = div_conj,
+            div_conj_der = div_conj_der,
+            max_time = max_time,
+            alpha = alphas[k],
+            N = N,
+            lambd = lambd,
+            sigma = sigma,
+            step_size = step_size,
+            kern = kern,
+            kern_der = kern_der,
+            verbose = False,
+            target_name = target_name,
+            plot=True, timeline=True, arrows=False, compute_W2 = compute_W2, compute_KALE = compute_KALE) #, st = k)
+           
+    torch.save(func_values, f'{folder}/Reg_{diverg}_Div_value_timeline,{lambd},{step_size},{N},{kernel},{sigma},{max_time},{target_name}.pt')
+    torch.save(MMD_values, f'{folder}/Reg_{diverg}_Div_MMD_timeline,{lambd},{step_size},{N},{kernel},{sigma},{max_time},{target_name}.pt')
+    torch.save(W2_values, f'{folder}/Reg_{diverg}_Div_W2_timeline,{lambd},{step_size},{N},{kernel},{sigma},{max_time},{target_name}.pt')
+    
+    
+    fig, ax = plt.subplots()
+    for k in range(L):
+        plt.plot(func_values[k, :], label = f'{alphas[k]}')
+    plt.yscale('log')
+    plt.xlabel('iterations')
+    plt.ylabel(r'$D_{f_{3}}^{{' + str(lambd) + r'}}(\mu \mid \nu)$')
+    plt.gca().yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=np.arange(2,10)*1/10))
+    plt.legend(frameon=False, facecolor='white', framealpha=1, title=r'$\alpha$')
+    plt.grid(which='both', color='gray', linestyle='--', alpha=.25)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.savefig(f'{folder}/Reg_{diverg}_Div_timeline,{step_size},{N},{kernel},{sigma},{max_time},{target_name}.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    # plot MMD
+    fig, ax = plt.subplots()
+    for k in range(L):
+        plt.plot(MMD_values[k, :], label = f'{alphas[k]}')
+    plt.yscale('log')
+    plt.xlabel('iterations')
+    plt.ylabel(r'$d_K(\mu, \nu)^2$')
+    plt.legend(frameon=False, facecolor='white', framealpha=1, title=r'$\alpha$')
+    plt.grid(which='both', color='gray', linestyle='--', alpha=.25)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.savefig(f'{folder}/Reg_{diverg}_Div_MMD_timeline,{step_size},{N},{kernel},{sigma},{max_time},{target_name}.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    if compute_KALE:
+      fig, ax = plt.subplots()
+      for k in range(L):
+          plt.plot(KALE_values[k, :], label = f'{alphas[k]}')
+      plt.yscale('log')
+      plt.xlabel('iterations')
+      plt.ylabel(r'KALE$(\mu, \nu)$')
+      plt.legend(frameon=False, facecolor='white', framealpha=1, title=r'$\alpha$')
+      plt.grid(which='both', color='gray', linestyle='--', alpha=.25)
+      ax.spines['top'].set_visible(False)
+      ax.spines['right'].set_visible(False)
+      plt.savefig(f'{folder}/Reg_{diverg}_Div_KALE_timeline,{step_size},{N},{kernel},{sigma},{max_time},{target_name}.png', dpi=300, bbox_inches='tight')
+      plt.close()
+      
+    if compute_W2:
+        fig, ax = plt.subplots()
+        for k in range(L):
+            plt.plot(W2_values[k, :], label = f'{alphas[k]}')
+        plt.yscale('log')
+        plt.xlabel('iterations')
+        plt.ylabel(r'$W_{2}(\mu, \nu)$')
+        plt.legend(frameon=False, facecolor='white', framealpha=1, title=r'$\alpha$')
+        plt.grid(which='both', color='gray', linestyle='--', alpha=.25)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        plt.savefig(f'{folder}/Reg_{diverg}_Div_W2_timeline,{step_size},{N},{kernel},{sigma},{max_time},{target_name}.png', dpi=300, bbox_inches='tight')
+        plt.close()
+   
+# this_main()
+lp = LineProfiler()
+lp_wrapper = lp(MMD_reg_f_div_flow)
+lp_wrapper(
+    sigma = .5,
+    step_size = 1e-3,
+    max_time = 5*1e1,
+    lambd = 1e-0,
+    N = 300*3,
+    kern = IMQ,
+    kern_der = IMQ_der,
+    target_name = 'two_lines',
+    alpha = 3,
+    div = tsallis,
+    div_der = tsallis_der,
+    div_conj = tsallis_conj,
+    div_conj_der = tsallis_conj_der,
+    compute_W2 = False,
+    compute_KALE = False
+    )
+lp.print_stats()

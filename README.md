@@ -69,12 +69,12 @@ We denote the reLU by $(x)_+ := \max(x, 0)$ and the Euclidean norm by $\| \cdot 
 
 Kernel                   | Name       | Expression $K(x, y) =$
 -------------------------| -----------| ----------------------------------------------
-inverse multiquadric     | `IMQ`      | $(\sigma + | x - y |^2)^{-\frac{1}{2}}$ 
-Gauss                    | `gauss`    | $\exp\left(- \frac{1}{2 \sigma} | x - y |^2\right)$
-Matérn-$\frac{3}{2}$     | `Matern`   | $\left(1 + \frac{\sqrt{3} | x - y |}{\sigma}\right) \exp\left(- \frac{\sqrt{3} | x - y |}{\sigma}\right)$
-Matérn-$\frac{5}{2}$     | `Matern2`  | $\left(1 + \frac{\sqrt{5} | x - y |}{\sigma} + \frac{5 | x - y |^2}{3 \sigma^2} \right) \exp\left(- \frac{\sqrt{5} | x - y |}{\sigma}\right)$
-Spline                   | `compact`  | $(1 - | x - y |)_{+}^{q + 2}$
-Another Spline           | `compact2` | $(1 - | x - y |)_{+}^{q + 3} \left( (q + 3) | x - y | + 1 \right)$ 
+inverse multiquadric     | `IMQ`      | $(\sigma + \| x - y \|^2)^{-\frac{1}{2}}$ 
+Gauss                    | `gauss`    | $\exp\left(- \frac{1}{2 \sigma} \| x - y \|^2\right)$
+Matérn-$\frac{3}{2}$     | `Matern`   | $\left(1 + \frac{\sqrt{3} \| x - y \|}{\sigma}\right) \exp\left(- \frac{\sqrt{3} \| x - y \|}{\sigma}\right)$
+Matérn-$\frac{5}{2}$     | `Matern2`  | $\left(1 + \frac{\sqrt{5} \| x - y \|}{\sigma} + \frac{5 \| x - y \|^2}{3 \sigma^2} \right) \exp\left(- \frac{\sqrt{5} \| x - y \|}{\sigma}\right)$
+Spline                   | `compact`  | $(1 - \| x - y \|)_{+}^{q + 2}$
+Another Spline           | `compact2` | $(1 - \| x - y \|)_{+}^{q + 3} \left( (q + 3) \| x - y \| + 1 \right)$ 
 
 
 Supported f-divergences / entropy functions

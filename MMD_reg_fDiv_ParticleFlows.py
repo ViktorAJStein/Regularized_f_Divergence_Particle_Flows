@@ -15,7 +15,6 @@ from data_generation import *
 torch.set_default_dtype(torch.float64) # set higher precision
 use_cuda = torch.cuda.is_available() # shorthand
 my_device = 'cuda' if use_cuda else 'cpu' 
-print(f'CUDA available = {use_cuda}')
 
 def MMD_reg_f_div_flow(
         alpha = 5,
@@ -45,8 +44,9 @@ def MMD_reg_f_div_flow(
     
     '''
     @return:    func_value:    torch tensor of length iterations, records objective value along the flow
-                KALE_values:   torch tensor of length iterations, records KALE divergence between particles and target along the flow
-                
+                MMD:           torch tensor of length iterations, records MMD between particles along the flow
+                W2:            torch tensor of length iteratiobs, records W2 metric between particles along the flow
+                KALE_values:   torch tensor of length iterations, records regularized KL divergence between particles and target along the flow
     '''
     
 
@@ -87,7 +87,7 @@ def MMD_reg_f_div_flow(
         target, prior = generate_data(int(N/3), st=st)
         
 
-    if target_name == 'two_lines': # two lines target
+    if target_name == 'bananas': # bananas target
         u = int(N/2)
         
         torch.manual_seed(st) # fix randomness
@@ -134,10 +134,10 @@ def MMD_reg_f_div_flow(
     duality_gaps = []
     pseudo_duality_gaps = []
     relative_duality_gaps = []
-    relative_pseudo_duality_gaps = []
-    dual_values = []    
+    relative_pseudo_duality_gaps = []   
     
     kxx = kern(X[:, None, :], X[None, :, :], sigma)
+    
     if compute_W2: 
         a, b = torch.ones(N) / N, torch.ones(N) / N
 
@@ -145,17 +145,19 @@ def MMD_reg_f_div_flow(
         # plot the particles ten times per unit time interval
         time1 = round(n*step_size, 1)
         if plot and not n % 1000 or n in 100*np.arange(1, 10):
-            X_cpu = X.cpu()
             Y_cpu = Y.cpu()
             plt.figure() 
-            plt.plot(X_cpu[:, 1], X_cpu[:, 0], '.', color='orange', markersize = 2) # plot target
+            plt.plot(target[:, 1], target[:, 0], '.', color='orange', markersize = 2) # plot target
             plt.plot(Y_cpu[:, 1], Y_cpu[:, 0], '.', color='blue', markersize = 2) # plot particles
             if arrows and n > 0:
+                minus_grad_cpu = - h_star_grad.cpu()
+                plt.quiver(Y_cpu[:, 1], Y_cpu[:, 0], minus_grad_cpu[:, 1], minus_grad_cpu[:, 0], angles='xy', scale_units='xy', scale=1)
+                '''
                 for i in range(Y.shape[0]):
                     point = Y_cpu[i, :]
                     vector = - h_star_grad.cpu()[i]
                     plt.arrow(point[1], point[0], vector[1], vector[0], head_width=0.05, head_length=0.1, fc='k', ec='k', linewidth=.5)                        
-            
+                '''
             
             if target_name == 'circles':
                plt.ylim([-.5, .5])
@@ -165,7 +167,7 @@ def MMD_reg_f_div_flow(
             plt.axis('off')
             
             time_stamp = int(time1*10)
-            img_name = f'/MMD-Reg_{divergence}{alpha}_div_flow,lambd={lambd},tau={step_size},{kernel},{sigma},{N},{max_time},{target_name}-{n}.png'
+            img_name = f'/Reg_{divergence}{alpha}flow,lambd={lambd},tau={step_size},{kernel},{sigma},{N},{max_time},{target_name}-{n}.png'
             plt.savefig(folder_name + img_name, dpi=300, bbox_inches='tight')
             plt.close()
     
@@ -249,7 +251,7 @@ def MMD_reg_f_div_flow(
             primal_objective,
             warm_start_q,
             fprime=primal_jacobian,
-            bounds=[(1e-15, None) for _ in range(len(warm_start_q))],
+            bounds=[(0, None) * N],
             **opt_kwargs,
         )
         if compute_KALE:
@@ -257,7 +259,7 @@ def MMD_reg_f_div_flow(
                 primal_KALE_objective,
                 warm_start_q,
                 fprime=primal_KALE_jacobian,
-                bounds=[(1e-15, None) for _ in range(len(warm_start_q))],
+                bounds=[(0, None) * N],
                 **opt_kwargs,
             )
             KALE_values[n] = prim_value_KALE
@@ -394,7 +396,7 @@ def this_main(
     N = 300*3,
     kern = IMQ,
     kern_der = IMQ_der,
-    target_name = 'two_lines',
+    target_name = 'bananas',
     alphas = [3], #, 3/2, 2, 5/2, 3, 4, 5, 15/2, 10],
     div = tsallis,
     div_der = tsallis_der,
@@ -508,13 +510,14 @@ lp_wrapper(
     N = 300*3,
     kern = IMQ,
     kern_der = IMQ_der,
-    target_name = 'two_lines',
+    target_name = 'bananas',
     alpha = 3,
     div = tsallis,
     div_der = tsallis_der,
     div_conj = tsallis_conj,
     div_conj_der = tsallis_conj_der,
     compute_W2 = False,
-    compute_KALE = False
+    compute_KALE = False,
+    arrows = True
     )
 lp.print_stats()

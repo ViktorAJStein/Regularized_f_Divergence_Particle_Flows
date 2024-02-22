@@ -6,7 +6,6 @@ import numpy as np
 import scipy as sp
 import matplotlib
 import matplotlib.pyplot as plt
-from line_profiler import LineProfiler
 from kernels import *
 from adds import *
 from entropies import *
@@ -143,7 +142,6 @@ def MMD_reg_f_div_flow(
 
     for n in range(iterations):
         # plot the particles ten times per unit time interval
-        time1 = round(n*step_size, 1)
         if plot and not n % 1000 or n in 100*np.arange(1, 10):
             Y_cpu = Y.cpu()
             plt.figure() 
@@ -166,7 +164,6 @@ def MMD_reg_f_div_flow(
             plt.gca().set_aspect('equal')
             plt.axis('off')
             
-            time_stamp = int(time1*10)
             img_name = f'/Reg_{divergence}{alpha}flow,lambd={lambd},tau={step_size},{kernel},{sigma},{N},{max_time},{target_name}-{n}.png'
             plt.savefig(folder_name + img_name, dpi=300, bbox_inches='tight')
             plt.close()
@@ -246,12 +243,12 @@ def MMD_reg_f_div_flow(
             iprint=0,
             maxiter=120,
             disp=0,
-        )    
+        ) 
         q_np, prim_value, _ = sp.optimize.fmin_l_bfgs_b(
             primal_objective,
             warm_start_q,
             fprime=primal_jacobian,
-            bounds=[(0, None) * N],
+            bounds=[(0, None) for _ in range(N)],
             **opt_kwargs,
         )
         if compute_KALE:
@@ -259,7 +256,7 @@ def MMD_reg_f_div_flow(
                 primal_KALE_objective,
                 warm_start_q,
                 fprime=primal_KALE_jacobian,
-                bounds=[(0, None) * N],
+                bounds=[(0, None) for _ in range(N)],
                 **opt_kwargs,
             )
             KALE_values[n] = prim_value_KALE
@@ -498,26 +495,3 @@ def this_main(
         ax.spines['right'].set_visible(False)
         plt.savefig(f'{folder}/Reg_{diverg}_Div_W2_timeline,{step_size},{N},{kernel},{sigma},{max_time},{target_name}.png', dpi=300, bbox_inches='tight')
         plt.close()
-   
-# this_main()
-lp = LineProfiler()
-lp_wrapper = lp(MMD_reg_f_div_flow)
-lp_wrapper(
-    sigma = .5,
-    step_size = 1e-3,
-    max_time = 5*1e1,
-    lambd = 1e-0,
-    N = 300*3,
-    kern = IMQ,
-    kern_der = IMQ_der,
-    target_name = 'bananas',
-    alpha = 3,
-    div = tsallis,
-    div_der = tsallis_der,
-    div_conj = tsallis_conj,
-    div_conj_der = tsallis_conj_der,
-    compute_W2 = False,
-    compute_KALE = False,
-    arrows = True
-    )
-lp.print_stats()

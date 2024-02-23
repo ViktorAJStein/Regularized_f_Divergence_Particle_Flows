@@ -7,16 +7,16 @@ def reLU(x):
 
 # f-divergence generators and their derivatives
 def tsallis_generator(x, alpha):
-    return np.choose(x >= 0, [np.inf, ((x+1e-16)**alpha - alpha*x + alpha - 1)/(alpha - 1)])
+    return np.choose(x >= 0, [np.inf, ((x+1e-30)**alpha - alpha*x + alpha - 1)/(alpha - 1)])
 
 def tsallis_generator_der(x, alpha):
-    return np.choose(x >= 0, [np.inf, alpha / (alpha - 1) * ( (x+1e-16)**(alpha - 1) - 1)])
+    return np.choose(x >= 0, [np.inf, alpha / (alpha - 1) * ( (x+1e-30)**(alpha - 1) - 1)])
     
 def kl_generator_hess(x):
     return np.choose(x > 0, [np.inf, 1/x])
 
 def tsallis_generator_hess(x, alpha):
-    return np.choose(x >= 0, [np.inf, alpha * (x+1e-16)**(alpha - 2)])
+    return np.choose(x >= 0, [np.inf, alpha * (x+1e-30)**(alpha - 2)])
     
 def tsallis_hess(x, alpha):
     if alpha != 1:
@@ -39,10 +39,10 @@ def tsallis_conj_der(x, alpha):
         return np.exp(x)
 
 def kl_generator(x):
-    return np.choose(x >= 0, [np.inf,np.choose(x > 0, [1, x*np.log(x+1e-16)-x+1])])
+    return sp.special.xlogy(x, x) - x + 1
 
 def kl_generator_der(x):
-    return np.choose(x > 0, [np.inf, np.log(x+1e-16)])
+    return np.log(x)
 
 # the Tsallis entropy function f_alpha
 def tsallis(x, alpha):
@@ -59,13 +59,11 @@ def tsallis_der(x, alpha):
         return kl_generator_der(x)
         
 def jeffreys(x, alpha):
-    tol = 1e-16
-    return np.choose(x > 0, [np.inf, (x - 1) * np.log(tol + x)])
+    return sp.special.xlogy(x - 1, x)
 
 def jeffreys_der(x, alpha):
-    tol = 1e-16
-    return np.choose(x > 0, [np.inf, (x - 1)/x + np.log(tol + x) ])
-
+    return (x - 1)/x + np.log(x)
+    
 def jeffreys_conj(x, alpha):
     lambert = np.real(sp.special.lambertw(np.e**(1 - x)))
     return x - 2 + lambert + 1/lambert
@@ -83,7 +81,7 @@ def chi_conj(x, alpha):
     return np.choose(x >= - alpha, [-1, x + (alpha - 1) * (np.abs(x) / alpha)**(alpha/(alpha - 1))])
     
 def chi_conj_der(x, alpha):
-    return 0 # TODO
+    return np.choose(x >= - alpha, [0, 1 + (alpha)**(1/(1-alpha)) * np.abs(x)**(1/(alpha - 1)) * np.sgn(x) ])
 
 ## divergences with non-finite conjugates
 def reverse_kl(x, alpha):

@@ -1,6 +1,7 @@
 from PIL import Image
 import torch
 import os
+import numpy as np
 
 def get_timestamp(file_name):
     return int(file_name.split('-')[-1].split('.')[0])

@@ -26,7 +26,7 @@ def create_gif(image_folder, output_gif):
     else:
         print("No PNG images found in the folder.")
 
-#################
+
 
 def make_folder(name):
     try:
@@ -38,15 +38,15 @@ def make_folder(name):
         print(f"An error occurred: {e}.")
 
 
-#################
+
 
 def rotate_point(point, angle):
+    # rotate the point by angle (in radians)
     x, y = point
-    angle_rad = angle * (np.pi / 180.0)  # degrees to radians
-    new_x = x * torch.cos(angle_rad) - y * torch.sin(angle_rad)
-    new_y = x * torch.sin(angle_rad) + y * torch.cos(angle_rad)
+    angle = torch.tensor(angle)
+    new_x = x * torch.cos(angle) - y * torch.sin(angle)
+    new_y = x * torch.sin(angle) + y * torch.cos(angle)
     return (new_x, new_y)
 
 def rotate_points(points, angle):
     return torch.tensor([rotate_point(point, angle) for point in points])
-    

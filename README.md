@@ -99,6 +99,7 @@ Jensen-Shannon       | `jensen_shannon` | $\log(x) - (x + 1) \ln\left(\frac{x+1}
 total variation      | `tv`             | $\| x - 1 \|$
 Matusita             | `matusita`       | $\|1 - x^{\alpha} \|^{\frac{1}{\alpha}}$
 Kafka                | `kafka`          | $\|1 - x \|^{\frac{1}{\alpha}} (1 + x)^{\frac{\alpha - 1}{\alpha}}$
+Marton               | `marton`         | $\max(1 - x, 0)^2$
 
 Supported targets
 ---------------------------

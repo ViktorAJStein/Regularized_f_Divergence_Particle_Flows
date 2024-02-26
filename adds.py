@@ -36,17 +36,3 @@ def make_folder(name):
         print(f"Folder '{name}' already exists.")
     except Exception as e:
         print(f"An error occurred: {e}.")
-
-
-
-
-def rotate_point(point, angle):
-    # rotate the point by angle (in radians)
-    x, y = point
-    angle = torch.tensor(angle)
-    new_x = x * torch.cos(angle) - y * torch.sin(angle)
-    new_y = x * torch.sin(angle) + y * torch.cos(angle)
-    return (new_x, new_y)
-
-def rotate_points(points, angle):
-    return torch.tensor([rotate_point(point, angle) for point in points])

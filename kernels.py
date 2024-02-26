@@ -1,15 +1,13 @@
 import torch
 import numpy as np
+
 # Gaussian kernel with width s
 def gauss(x, y, s):
-    # if isinstance(x, torch.Tensor):
     return (-1 / (2*s) * (x - y) ** 2).sum(axis=-1).exp()
-    # else:
-    #     return np.exp((-1 / (2*s) * (x - y) ** 2).sum(axis=-1))
 
-# derivative of Gaussian kernel
+# derivative of Gaussian kernel    
 def gauss_der(x, y, s):
-    diff = y[:, None, :] - x[None, :, :]
+    diff = y[:,None, :] - x[None,:, :]
     return 1 / s * (-1 / (2*s) * torch.linalg.vector_norm(diff, dim=2, keepdim=True)**2).exp() * diff
 
 
@@ -17,7 +15,7 @@ def IMQ(x, y, s):
     return (s + (((x - y) ** 2)).sum(axis=-1)) ** -(1/2)
     
 def IMQ_der(x, y, s):
-    diff = y[:, None, :] - x[None, :, :]
+    diff = y[:,None, :] - x[None,:, :]
     pref = (torch.linalg.vector_norm(diff, dim=2, keepdim=True)**2 + s) ** -(3/2)
     return pref * diff
     
@@ -27,7 +25,7 @@ def Matern(x, y, sigma): # nu = 3/2
     #2**(1 - nu) / sp.special.gamma(nu) * (np.sqrt(2 * nu * r) / sigma)**nu * sp.special.kv(nu, np.sqrt(2 * nu * r)/ sigma)
     
 def Matern_der(x, y, sigma): # nu = 3/2
-    diff = y[:, None, :] - x[None, :, :]
+    diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return 3/sigma**2 * (- 3 / sigma * r).exp() * diff
     
@@ -36,7 +34,7 @@ def Matern2(x, y, sigma): # nu = 5/2
     return (1 + torch.sqrt(5*r) / sigma + 5*r/(3*sigma**2) ) * (- torch.sqrt(5*r) / sigma).exp()
 
 def Matern2_der(x, y, sigma): # nu = 5/2
-    diff = y[:, None, :] - x[None, :, :]
+    diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)**2
     return 5/6 * 1/sigma**3 * (torch.sqrt(5*r) + sigma) * (- torch.sqrt(5*r) / sigma).exp() * diff
     
@@ -45,7 +43,7 @@ def compact(x, y, q): # this expression depends on the dimension of the data poi
     return torch.nn.functional.relu(1 - r)**(q + 2)
     
 def compact_der(x, y, q):
-    diff = y[:, None, :] - x[None, :, :]
+    diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return diff/r*(q+2)/2*torch.nn.functional.relu(1 - r)**(q + 1)
 
@@ -54,7 +52,7 @@ def compact2(x, y, q):  # this expression depends on the dimension of the data p
     return torch.nn.functional.relu(1 - r)**(q + 3) * ( (q + 3)*r + 1 ) 
     
 def compact2_der(x, y, q):
-    diff = y[:, None, :] - x[None, :, :]
+    diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return 1/2*diff*(q+3)*(q+4)*torch.nn.functional.relu(1 - r)**(q + 2)
 
@@ -64,7 +62,7 @@ def inv_quad(x, y, sigma):
     return 1/(1 + sigma*r2)
     
 def inv_quad_der(x, y, sigma):
-    diff = y[:, None, :] - x[None, :, :]
+    diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return 2*sigma/(1 + sigma*r**2)**2 * diff
 
@@ -72,7 +70,7 @@ def inv_log(x, y, sigma, beta = -1/2):
     return (sigma + torch.log(1 + ((x - y)**2).sum(axis=-1)))**(beta)
  
 def inv_log_der(x, y, sigma, beta=-1/2):
-    diff = x[:, None, :] - y[None, :, :]
+    diff = x[:,None, :] - y[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return 2*beta/(1 + r) * (sigma + torch.log(1 + r))**(beta - 1) * diff
 
@@ -103,7 +101,7 @@ def energy_kernel(x, y, sigma):
         raise ValueError(f"type of x ({type(x)}) not understood")
 
     ret = 0.5 * (pxx0 + pyx0 - pxy)
-    # pretending eps = 0, this is 1/2 * (|| x - 0 ||^sigma + || y - 0 ||^sigma - || x - y ||^sigma)
+    # pretending eps = 0, this is 1/2 * (|| x ||^sigma + || y ||^sigma - || x - y ||^sigma)
     return ret
     
 def energy_kernel_der(x, y, sigma):
@@ -130,27 +128,43 @@ def energy_kernel_der(x, y, sigma):
         raise ValueError(f"type of x ({type(x)}) not understood")
 
     ret = sigma/2 * ( pxx0*x - pxy*(x- y) )
+    
+    
+def emb_const(kern, sigma):
+    # returns embedding constant of H_K \hookrightarrow C_0
+    if kern in [gauss, Matern, Matern2, compact, compact2]:
+        return 1
+    elif kern in [IMQ, inv_log]:
+        return np.sqrt(sigma**(1/4)) 
 
 
-### these below do not yield sensible results, TPS is not PD
+# these kernels below do not yield sensible results
+# there are multiple reasons, i.e the thin plate spline
+# is not positive definite,
 
 def thin_plate_spline(x, y, sigma):
-    tol = 1e-16
+    tol=1e-16
     r = ((x - y) ** 2).sum(axis=-1)**(1/2)
     return r * torch.log(r**r + tol)
 
 def thin_plate_spline_der(x, y, sigma):
-    tol = 1e-16
-    diff = x[:, None, :] - y[None, :, :]
+    tol=1e-16
+    diff = x[:,None, :] - y[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return 1/2*diff*(torch.log(r**2 + tol) + 1)
+    
+def squared_dot(x, y, sigma):
+    return 1/2*torch.dot(x,y)**2
+
+def squared_dot(x, y, sigma):
+    return y
 
 # not positive definite?
 def multiquad(x, y, sigma):
     r2 = ((x - y) ** 2).sum(axis=-1)
     return torch.sqrt(1 + sigma*r2)
-
+    
 def multiquad_der(x, y, sigma):
-    diff = x[:, None, :] - y[None, :, :]
+    diff = x[:,None, :] - y[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return sigma/torch.sqrt(1 + sigma*r**2) * diff

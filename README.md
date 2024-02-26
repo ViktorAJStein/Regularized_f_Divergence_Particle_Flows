@@ -88,7 +88,7 @@ Kullback-Leibler     | `tsallis`, \$\alpha = 1\$  | \$x \ln(x) - x + 1\$ for \$x
 Tsallis-\$\alpha\$   | `tsallis`                  | \$\frac{x^{\alpha} - \alpha x + \alpha - 1}{\alpha - 1}\$
 Jeffreys             | `jeffreys`                 | \$(x - 1) \ln(x)\$ for \$x > 0\$
 chi-\$\alpha\$       | `chi`                      | \$\| x - 1 \|^{\alpha}\$
-perimeter            | `perimeter`                | $\frac{\sgn(\alpha)}{1 - \alpha}\left( (x^{\frac{1}{\alpha}} + 1)^{\alpha} - 2^{\alpha - 1}(x + 1)\right)$
+perimeter            | `perimeter`                | $\frac{\text{sign}(\alpha)}{1 - \alpha}\left( (x^{\frac{1}{\alpha}} + 1)^{\alpha} - 2^{\alpha - 1}(x + 1)\right)$
 
 Below we list some other implemented entropy functions with finite recession constant. For even more entropy functions we refer to table 1 in the above mentioned preprint.
 
@@ -97,8 +97,8 @@ Entropy              | Name             | Expression $f(x)$ for $x \ge 0$
 Burg                 | `reverse_kl`     | $x - 1 - \ln(x)$ for $x > 0$
 Jensen-Shannon       | `jensen_shannon` | $\log(x) - (x + 1) \ln\left(\frac{x+1}{2}\right)$ for $x > 0$
 total variation      | `tv`             | $\| x - 1 \|$
-Matusita             | `matusita`       | $|1 - x^{\alpha} |^{\frac{1}{\alpha}}$
-Kafka                | `kafka`          | $|1 - x |^{\frac{1}{\alpha}} (1 + x)^{\frac{\alpha - 1}{\alpha}}$
+Matusita             | `matusita`       | $\|1 - x^{\alpha} \|^{\frac{1}{\alpha}}$
+Kafka                | `kafka`          | $\|1 - x \|^{\frac{1}{\alpha}} (1 + x)^{\frac{\alpha - 1}{\alpha}}$
 
 Supported targets
 ---------------------------

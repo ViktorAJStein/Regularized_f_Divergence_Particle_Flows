@@ -10,12 +10,6 @@ from kernels import *
 from adds import *
 from entropies import *
 from data_generation import *
-from tqdm import tqdm
-
-# matplotlib parameters for rending of figures
-mpl.rcParams['axes.formatter.useoffset'] = False
-mpl.rcParams['legend.frameon'] = False
-
 
 torch.set_default_dtype(torch.float64)  # set higher precision
 use_cuda = torch.cuda.is_available()  # shorthand
@@ -28,7 +22,7 @@ def MMD_reg_f_div_flow(
         N=50,  # number of particle
         lambd=.01,  # regularization
         step_size=.001,  # step size for Euler forward discretization
-        max_time=1,  # maximal time horizon for simulation
+        max_time=5,  # maximal time horizon for simulation
         plot=True,  # plot particles along the evolution
         arrows=False,  # plots arrows at particles to show their gradients
         timeline=True,  # plots timeline of functional value along the flow
@@ -49,14 +43,14 @@ def MMD_reg_f_div_flow(
         ):
     '''
     @return:    func_value:    torch tensor of length iterations, records objective value along the flow
-                MMD:           torch tensor of length iterations, records MMD between particles along the flow
+                MMD:           torch tensor of length iterations, records 1/2 MMD^2 between particles along the flow
                 W2:            torch tensor of length iteratiobs, records W2 metric between particles along the flow
                 KALE_values:   torch tensor of length iterations, records regularized KL divergence between particles and target along the flow
     '''
 
     iterations = int(max_time / step_size)  # max number of iterations
     if not div in [tsallis, chi, lindsay, perimeter]:
-        alpha = ''
+        alpha = None
 
     kernel = kern.__name__
     B = emb_const(kern, sigma) #  embedding constant H_K \hookrightarrow C_0
@@ -80,25 +74,26 @@ def MMD_reg_f_div_flow(
     KALE_values = torch.zeros(iterations)
     dual_values = []
     pseudo_dual_values = []
-    MMD = torch.zeros(iterations)  # mmd(X, Y)^2 during the algorithm
+    MMD = torch.zeros(iterations)  # 1/2 mmd(X, Y)^2 during the algorithm
     W2 = torch.zeros(iterations)
     duality_gaps = []
     pseudo_duality_gaps = []
     relative_duality_gaps = []
     relative_pseudo_duality_gaps = []
+    lower_bds_lambd = []
 
     kxx = kern(X[:, None, :], X[None, :, :], sigma)
 
     if compute_W2:
         a, b = torch.ones(N) / N, torch.ones(N) / N
 
-    for n in tqdm(range(iterations)):
+    for n in range(iterations):
         # plot the particles ten times per unit time interval
-        if plot and not n % 10 or n in 100*np.arange(1, 10):
+        if plot and not n % 1000 or n in 100*np.arange(1, 10):
             Y_cpu = Y.cpu()
             plt.figure()
-            plt.plot(target[:, 1], target[:, 0], '.', color='orange', ms=2)
-            plt.plot(Y_cpu[:, 1], Y_cpu[:, 0], '.', color='blue', ms=2)
+            plt.plot(target[:, 1], target[:, 0], '.', c='orange', ms=2)
+            plt.plot(Y_cpu[:, 1], Y_cpu[:, 0], 'b.', ms=2)
             if arrows and n > 0:
                 minus_grad_cpu = - h_star_grad.cpu()
                 plt.quiver(Y_cpu[:, 1], Y_cpu[:, 0], minus_grad_cpu[:, 1], minus_grad_cpu[:, 0], angles='xy', scale_units='xy', scale=1)
@@ -123,10 +118,10 @@ def MMD_reg_f_div_flow(
         K = K.numpy()
 
         # calculate 1/2 MMD(X, Y)^2 and W2 metric between particles and target
-        MMD[n] = 1/(2 * N**2) * (kxx.sum() + kyy.sum() - 2 * kxy.sum())
-        if verbose:
-          print(f'Iteration {n}, lambda = {lambd}, upper bound = {(2 * torch.sqrt(2*MMD[n]) * B / div_reces).item()}')
-        if not (lambd > 2 * torch.sqrt(2*MMD[n]) * B / div_reces):
+        MMD[n] = (0.5 * (kxx.sum() / N ** 2 + kyy.sum() / M ** 2 - 2 * kxy.sum() / (N * M))).item()
+        lower_bd_lambd = (2 * torch.sqrt(2*MMD[n]) * B / div_reces).item()
+        lower_bds_lambd.append(lower_bd_lambd)
+        if not (lambd > lower_bd_lambd):
             print("Condition is not fulfilled")
         if compute_W2:
             M2 = ot.dist(X, Y, metric='sqeuclidean')
@@ -136,8 +131,8 @@ def MMD_reg_f_div_flow(
         def primal_objective(q):
             convex_term = 1/M * np.sum(div(q[:M], alpha))
             linear_term = div_reces * (1 + 1/M * np.sum(q[M:]))
-            quadratic_term = q.T @ K @ q
-            return convex_term + linear_term + 1/(2 * lambd * M * M) * quadratic_term
+            quadratic_term = 1/(2 * lambd * M * M) *  q.T @ K @ q
+            return convex_term + linear_term + quadratic_term
 
         def primal_jacobian(q):
             convex_term = 1/M * div_der(q[:M], alpha)
@@ -149,16 +144,16 @@ def MMD_reg_f_div_flow(
 
         # this is minus the value of the objective
         def dual_objective(b):
-            p = K @ b
-            c1 = np.concatenate((div_conj(p[:N], alpha), - p[N:]))
-            c3 = b.T @ p
+            h = K @ b
+            c1 = np.concatenate((div_conj(h[:N], alpha), - h[N:]))
+            c3 = b.T @ h
             return 1/N * np.sum(c1) + lambd/2 * c3
 
         # jacobian of the above ojective function
         def dual_jacobian(b):
-            p = K @ b
-            x = np.concatenate((div_conj_der(p[:N], alpha), - np.ones(N)), axis=0)
-            return 1/N * K @ x + lambd * p
+            h = K @ b
+            x = np.concatenate((div_conj_der(h[:N], alpha), - np.ones(N)), axis=0)
+            return 1/N * K @ x + lambd * h
 
         if n > 0:  # warm start
             warm_start_q = q_np  # take solution from last iteration
@@ -259,7 +254,7 @@ def MMD_reg_f_div_flow(
         fig, ax = plt.subplots()
         plt.plot(MMD.cpu().numpy())
         plt.xlabel('iterations')
-        plt.ylabel(r'$d_{K}(\mu, \nu)$')
+        plt.ylabel(r'$\frac{1}{2} d_{K}(\mu, \nu)^2$')
         plt.yscale('log')
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
@@ -307,15 +302,29 @@ def MMD_reg_f_div_flow(
         plt.gca().yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8)))
         plt.yscale('log')
         plt.xlabel('iterations')
+        plt.legend()
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         plt.savefig(folder_name + f'/{divergence}_duality_gaps_timeline,{alpha},{lambd},{step_size},{kernel},{sigma}.png', dpi=300, bbox_inches='tight')
         plt.close()
 
+
+        # lower bd on lambda
+        fig, ax = plt.subplots()
+        plt.plot(lower_bds_lambd, label=r'lower bound on $\lambda$')
+        plt.axhline(y=lambd, linestyle='--', color='gray', label=f'$\lambda$')
+        plt.gca().yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8)))
+        plt.yscale('log')
+        plt.xlabel('iterations')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        plt.savefig(folder_name + f'/{divergence}_lower_bd_lambd_timeline,{alpha},{lambd},{step_size},{kernel},{sigma}.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        
         func_values = torch.tensor(np.array(func_values))
         KALE_values = torch.tensor(np.array(KALE_values))
 
     return func_values, MMD, W2, KALE_values
 
-alpha = 1.75
-MMD_reg_f_div_flow(target_name = 'bananas', alpha=alpha, div=tsallis, div_der=tsallis_der, lambd=.5, verbose=False, sigma=.05, N=900, mode='dual')
+MMD_reg_f_div_flow(target_name = 'circles', N = 900, div=tv, div_der=tv_der, lambd=5, arrows = True, verbose=True, sigma=.05, mode='dual')

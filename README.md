@@ -72,7 +72,7 @@ Kernel                   | Name       | Expression $K(x, y) =$
 inverse multiquadric     | `IMQ`      | $(\sigma + \| x - y \|^2)^{-\frac{1}{2}}$ 
 Gauss                    | `gauss`    | $\exp\left(- \frac{1}{2 \sigma} \| x - y \|^2\right)$
 Matérn-$`\frac{3}{2}`$   | `Matern`   | $\left(1 + \frac{\sqrt{3} \| x - y \|}{\sigma}\right) \exp\left(- \frac{\sqrt{3} \| x - y \|}{\sigma}\right)$
-Matérn-$\frac{5}{2}$     | `Matern2`  | $\left(1 + \frac{\sqrt{5} \| x - y \|}{\sigma} + \frac{5 \| x - y \|^2}{3 \sigma^2} \right) \exp\left(- \frac{\sqrt{5} \| x - y \|}{\sigma}\right)$
+Matérn-$`\frac{5}{2}`$   | `Matern2`  | $\left(1 + \frac{\sqrt{5} \| x - y \|}{\sigma} + \frac{5 \| x - y \|^2}{3 \sigma^2} \right) \exp\left(- \frac{\sqrt{5} \| x - y \|}{\sigma}\right)$
 $B_{2\ell+1}$-Spline     | `compact`  | $(1 - \| x - y \|)_{+}^{q + 2}$
 Another Spline           | `compact2` | $(1 - \| x - y \|)_{+}^{q + 3} \left( (q + 3) \| x - y \| + 1 \right)$
 inverse log              | `inv_log`  | $\left(\sigma + \ln(1 + \| x - y \|^2)\right)^{-\frac{1}{2}}$
@@ -85,9 +85,9 @@ The following entropy functions each have an infinite recession constant if $\al
 Entropy              | Name                       | Expression \$f(x)\$ for \$x \ge 0\$
 ---------------------| ---------------------------| ----------------------------------------------
 Kullback-Leibler     | `tsallis`, \$\alpha = 1\$  | \$x \ln(x) - x + 1\$ for \$x > 0\$.
-Tsallis-\$\alpha\$   | `tsallis`                  | \$\frac{1}{\alpha - 1} \left( x^{\alpha} - \alpha x + \alpha - 1 \right)\$
+Tsallis-$`\alpha`$   | `tsallis`                  | \$\frac{1}{\alpha - 1} \left( x^{\alpha} - \alpha x + \alpha - 1 \right)\$
 Jeffreys             | `jeffreys`                 | \$(x - 1) \ln(x)\$ for \$x > 0\$
-chi-\$\alpha\$       | `chi`                      | \$\| x - 1 \|^{\alpha}\$
+chi-$`\alpha`$       | `chi`                      | \$\| x - 1 \|^{\alpha}\$
 
 Below we list some other implemented entropy functions with finite recession constant. For even more entropy functions we refer to table 1 in the above mentioned preprint.
 

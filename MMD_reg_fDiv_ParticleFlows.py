@@ -17,29 +17,27 @@ my_device = 'cuda' if use_cuda else 'cpu'
 
 
 def MMD_reg_f_div_flow(
-        alpha=5,  # divergence parameter
-        sigma=.10,  # kernel parametre
-        N=50,  # number of particle
+        alpha=4,  # divergence parameter
+        sigma=.10,  # kernel parameter
+        N=900,  # number of particles
         lambd=.01,  # regularization
         step_size=.001,  # step size for Euler forward discretization
-        max_time=5,  # maximal time horizon for simulation
+        max_time=100,  # maximal time horizon for simulation
         plot=True,  # plot particles along the evolution
         arrows=False,  # plots arrows at particles to show their gradients
         timeline=True,  # plots timeline of functional value along the flow
         d=2,  # dimension of the ambient space in which the particles live
         kern=IMQ,  # kernel
-        kern_der=IMQ_der,  # partial derivative of the kernel 
         mode='primal',  # if mode=='dual' the dual problem is solved as well
-        div_conj=tv_conj,  # convex conjugate of the entropy function
-        div_conj_der=tv_conj_der,  # derivative of div_conj
-        div=tv,  # entropy function
-        div_der=tv_der,  # derivative of div
+        div=tsallis,  # entropy function
         target_name='circles',  # name of the target measure nu
         verbose=False,  # decide whether to print warnings
         compute_W2=False,  # compute W2 dist of particles to target along flow
         save_opts=False,  # save minimizers and gradients along the flow
         compute_KALE=False,  # compute MMD-reg. KL-div. from particle to target
-        st = 42  # random state for reproducibility
+        st = 42,  # random state for reproducibility
+        annealing = False,
+        annealing_factor = 0
         ):
     '''
     @return:    func_value:    torch tensor of length iterations, records objective value along the flow
@@ -48,15 +46,20 @@ def MMD_reg_f_div_flow(
                 KALE_values:   torch tensor of length iterations, records regularized KL divergence between particles and target along the flow
     '''
 
-    iterations = int(max_time / step_size)  # max number of iterations
+    iterations = int(max_time / step_size) + 1 # max number of iterations
     if not div in [tsallis, chi, lindsay, perimeter]:
         alpha = None
 
+    kern_der = globals().get(kern.__name__ + '_der')
     kernel = kern.__name__
     B = emb_const(kern, sigma) #  embedding constant H_K \hookrightarrow C_0
     divergence = div.__name__
     div_reces = rec_const(divergence, alpha) # recession constant of entropy function
-    folder_name = f"{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{sigma},{N},{mode},{max_time},{target_name},state={st}"
+    div_conj = globals().get(div.__name__ + '_conj')  # convex conjugate of the entropy function
+    div_conj_der = globals().get(div.__name__ + '_conj_der')  # derivative of div_conj
+    div_der = globals().get(div.__name__ + '_der')  # derivative of div
+    
+    folder_name = f"{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{sigma},{N},{mode},{max_time},{target_name},state={st}_{annealing}={annealing_factor}"
     make_folder(folder_name)
     
     if verbose:
@@ -73,6 +76,7 @@ def MMD_reg_f_div_flow(
     func_values = []  # objective value during the algorithm
     KALE_values = torch.zeros(iterations)
     dual_values = []
+    lambdas = []
     pseudo_dual_values = []
     MMD = torch.zeros(iterations)  # 1/2 mmd(X, Y)^2 during the algorithm
     W2 = torch.zeros(iterations)
@@ -89,7 +93,7 @@ def MMD_reg_f_div_flow(
 
     for n in range(iterations):
         # plot the particles ten times per unit time interval
-        if plot and not n % 1000 or n in 100*np.arange(1, 10):
+        if plot and not n % 1000 or n in 1e2*np.arange(1, 10):
             Y_cpu = Y.cpu()
             plt.figure()
             plt.plot(target[:, 1], target[:, 0], '.', c='orange', ms=2)
@@ -97,11 +101,9 @@ def MMD_reg_f_div_flow(
             if arrows and n > 0:
                 minus_grad_cpu = - h_star_grad.cpu()
                 plt.quiver(Y_cpu[:, 1], Y_cpu[:, 0], minus_grad_cpu[:, 1], minus_grad_cpu[:, 0], angles='xy', scale_units='xy', scale=1)
-            '''
             if target_name == 'circles':
-                plt.ylim([-.5, .5])
-                plt.xlim([-2.0, .5])
-            '''    
+                plt.ylim([-1.0, 1.0])
+                plt.xlim([-2.0, 0.5])   
             plt.gca().set_aspect('equal')
             plt.axis('off')
             img_name = f'/Reg_{divergence}{alpha}flow,lambd={lambd},tau={step_size},{kernel},{sigma},{N},{max_time},{target_name}-{n}.png'
@@ -117,12 +119,24 @@ def MMD_reg_f_div_flow(
         K = K.cpu()
         K = K.numpy()
 
+        
         # calculate 1/2 MMD(X, Y)^2 and W2 metric between particles and target
         MMD[n] = (0.5 * (kxx.sum() / N ** 2 + kyy.sum() / M ** 2 - 2 * kxy.sum() / (N * M))).item()
-        lower_bd_lambd = (2 * torch.sqrt(2*MMD[n]) * B / div_reces).item()
-        lower_bds_lambd.append(lower_bd_lambd)
-        if not (lambd > lower_bd_lambd):
-            print("Condition is not fulfilled")
+            
+        # annealing     
+        if annealing:
+            lower_bd_lambd = (2 * torch.sqrt(2*MMD[n]) * B / div_reces).item()
+            lower_bds_lambd.append(lower_bd_lambd)
+            if not (lambd > lower_bd_lambd):
+                print("Condition is not fulfilled")
+            if annealing_factor > 0 and n in [5e3, 1e4, 2e4]:
+              lambd /= annealing_factor
+              print(f"new lambda = {lambd}")
+            elif annealing_factor == 0 and lambd > 1e-2:
+              lambd = lower_bd_lambd + 1e-4
+        
+        lambdas.append(lambd)
+        
         if compute_W2:
             M2 = ot.dist(X, Y, metric='sqeuclidean')
             W2[n] = ot.emd2(a, b, M2)
@@ -135,9 +149,9 @@ def MMD_reg_f_div_flow(
             return convex_term + linear_term + quadratic_term
 
         def primal_jacobian(q):
-            convex_term = 1/M * div_der(q[:M], alpha)
-            constnt_term = div_reces / M * np.ones(N)
-            joint_term = np.concatenate((convex_term, constnt_term))
+            convex_term = div_der(q[:M], alpha)
+            constnt_term = div_reces * np.ones(N)
+            joint_term = 1/M * np.concatenate((convex_term, constnt_term))
             linear_term = K @ q
             return joint_term + 1/(lambd * M * M) * linear_term
 
@@ -145,14 +159,14 @@ def MMD_reg_f_div_flow(
         # this is minus the value of the objective
         def dual_objective(b):
             h = K @ b
-            c1 = np.concatenate((div_conj(h[:N], alpha), - h[N:]))
+            c1 = np.concatenate((div_conj(h[:M], alpha), - h[M:]))
             c3 = b.T @ h
             return 1/N * np.sum(c1) + lambd/2 * c3
 
         # jacobian of the above ojective function
         def dual_jacobian(b):
             h = K @ b
-            x = np.concatenate((div_conj_der(h[:N], alpha), - np.ones(N)), axis=0)
+            x = np.concatenate((div_conj_der(h[:M], alpha), - np.ones(N)), axis=0)
             return 1/N * K @ x + lambd * h
 
         if n > 0:  # warm start
@@ -193,8 +207,8 @@ def MMD_reg_f_div_flow(
         if mode == 'dual':
             b_np, minus_dual_value, _ = sp.optimize.fmin_l_bfgs_b(dual_objective, warm_start_b, fprime = dual_jacobian, **opt_kwargs) 
             dual_values.append(-minus_dual_value)
-            print(f'Constraint on dual variable: {(div_reces/B)**2 - b_np.T@K@b_np}')
-            if plot and save_opts and not n % 10000:
+            # print(f'Constraint on dual variable: {(div_reces/B)**2 - b_np.T@K@b_np}')
+            if plot and save_opts and not n % 1e5:
                 torch.save(torch.from_numpy(b_np), f'{folder_name}/b_at_{n}.pt')
 
         pseudo_dual_value = - dual_objective(- 1/(lambd * M) * q_np)
@@ -205,9 +219,9 @@ def MMD_reg_f_div_flow(
         relative_pseudo_duality_gaps.append(relative_pseudo_duality_gap)
         pseudo_gap_tol, relative_pseudo_gap_tol = 1e-2, 1e-2
         if pseudo_duality_gap > pseudo_gap_tol and verbose:
-              warn(f'Iteration {n}: pseudo-duality gap {pseudo_duality_gap} > tolerance {pseudo_gap_tol}.')
+              warn(f'Iteration {n}: pseudo-duality gap = {pseudo_duality_gap:.4f} > tolerance = {pseudo_gap_tol}.')
         if relative_pseudo_duality_gap > relative_pseudo_gap_tol and verbose:
-              warn(f'Iteration {n}: relative pseudo-duality gap {relative_pseudo_duality_gap} > tolerance {relative_pseudo_gap_tol}.')
+              warn(f'Iteration {n}: relative pseudo-duality gap = {relative_pseudo_duality_gap:.4f} > tolerance = {relative_pseudo_gap_tol}.')
 
         if mode == 'dual' and not alpha == '':
             dual_value = - minus_dual_value
@@ -217,27 +231,27 @@ def MMD_reg_f_div_flow(
             relative_duality_gaps.append(relative_duality_gap)
             gap_tol, relative_gap_tol = 1e-2, 1e-2
             if duality_gap > gap_tol and verbose:
-                warn(f'Iteration {n}: duality gap {duality_gap} > tolerance {gap_tol}.')
+                warn(f'Iteration {n}: duality gap = {duality_gap:.4f} > tolerance = {gap_tol}.')
             if relative_duality_gap > relative_gap_tol and verbose:
-                warn(f'Iteration {n}: relative duality gap {relative_duality_gap} > tolerance {relative_gap_tol}.')
+                warn(f'Iteration {n}: relative duality gap = {relative_duality_gap:.4f} > tolerance = {relative_gap_tol}.')
 
         q_torch = torch.tensor(q_np, dtype=torch.float64, device=my_device)
 
         # save solution vector in every 100-th iteration (to conserve memory)
-        if plot and save_opts and not n % 1000:
+        if plot and save_opts and not n % 1e5:
             torch.save(q_torch, f'{folder_name}/q_at_{n}.pt')
 
         Z = torch.cat((X, Y))
         temp = q_torch.view(M+N, 1, 1) * kern_der(Y, Z, sigma)
-        h_star_grad = 1 / (lambd * M) * torch.sum(temp, dim=0)
+        h_star_grad = - 1 / (lambd * M) * torch.sum(temp, dim=0)
 
-        if plot and save_opts and not n % 1000:
+        if plot and save_opts and not n % 1e5:
             torch.save(h_star_grad, f'{folder_name}/h_star_grad_at_{n}.pt')
 
         # save position of particles in every 100-th iteration (to conserve memory)
-        if not n % 1000 or n in 100*np.arange(1, 10):
+        if not n % 1e4 or n in 100*np.arange(1, 10):
             torch.save(Y, f'{folder_name}/Y_at_{n}.pt')
-        Y += step_size * h_star_grad
+        Y -= step_size * h_star_grad
 
     suffix = f',{lambd},{step_size},{N},{kernel},{sigma},{max_time},{target_name}'
     torch.save(func_values, folder_name + f'/Reg_{divergence}-{alpha}_Div_value_timeline{suffix}.pt')
@@ -311,13 +325,17 @@ def MMD_reg_f_div_flow(
 
         # lower bd on lambda
         fig, ax = plt.subplots()
+        if annealing:
+            plt.plot(lambdas, label=r'$\lambda$')
+        else:
+            plt.axhline(y=lambd, linestyle='--', color='gray', label=r'$\lambda$')
         plt.plot(lower_bds_lambd, label=r'lower bound on $\lambda$')
-        plt.axhline(y=lambd, linestyle='--', color='gray', label=f'$\lambda$')
         plt.gca().yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8)))
         plt.yscale('log')
         plt.xlabel('iterations')
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
+        plt.legend(frameon=False)
         plt.savefig(folder_name + f'/{divergence}_lower_bd_lambd_timeline,{alpha},{lambd},{step_size},{kernel},{sigma}.png', dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -327,4 +345,4 @@ def MMD_reg_f_div_flow(
 
     return func_values, MMD, W2, KALE_values
 
-MMD_reg_f_div_flow(target_name = 'circles', N = 900, div=tv, div_der=tv_der, lambd=5, arrows = True, verbose=True, sigma=.05, mode='dual')
+MMD_reg_f_div_flow(alpha = 3, target_name = 'GMM', N = 900, lambd=.01, verbose=False, sigma=.05, mode='primal', annealing=False, kern=IMQ)

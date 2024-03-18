@@ -113,10 +113,14 @@ Supported targets
 <p align="center">
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/Cross.gif" width="500" /> 
 </p>
+* `GMM`: two Gaussians
+<p align="center">
+  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/tsallis,alpha=3,lambd=0.01,tau=0.001,gauss,0.05,900,primal,100,GMM,state=42.gif" width="500" /> 
+</p>
 
 
 
 Speed
 ---------------------------
-I am still working on improving the speed of this script.
+I am still working on improving the speed of this script, the bottleneck being the L-BFGS-B on the CPU.
 Currently, running the simulation for 50000 steps (exact parameters: tsallis-divergence, alpha=3, lambd=1.0, tau=0.001, kernel = IMQ, sigma = 0.5, N = 900, target_name = bananas) takes less than 12 minutes on a CUDA 7.5 GPU with 12 GB of RAM.

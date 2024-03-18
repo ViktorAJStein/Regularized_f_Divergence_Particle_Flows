@@ -13,18 +13,18 @@ def generate_prior_target(N, st, target):
         return generate_GMM(N, st=st)
 
 def generate_GMM(N, st, d = 2):
+    # target = sum of two Gaussians
+    # target and prior have the symmetry axis x = - y
     linspace = torch.linspace(-.5, .5, N).unsqueeze(1)
     prior = torch.cat( (linspace, - linspace),  dim=1)
     
     halfN = int(N/2)
     m1 = 1/2*torch.ones(d)
     v = 1/200*torch.eye(d)
-
-    normal1 = torch.distributions.MultivariateNormal(m1, v)
-    normal2 = torch.distributions.MultivariateNormal(-m1, v)
-    target1 = normal1.sample((halfN,))
-    target2 = normal2.sample((halfN,))
-    target = torch.cat( (target1, target2) )
+    torch.manual_seed(st)
+    normal = torch.distributions.MultivariateNormal(m1, v)
+    target = normal.sample((halfN,))
+    target = torch.cat( (target, - target) )
 
     return target, prior
 

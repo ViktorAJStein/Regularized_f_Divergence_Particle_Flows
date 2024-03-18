@@ -9,6 +9,24 @@ def generate_prior_target(N, st, target):
         return generate_cross(N, st=st)
     elif target == 'bananas':
         return generate_bananas(N, st=st)
+    elif target == 'GMM':
+        return generate_GMM(N, st=st)
+
+def generate_GMM(N, st, d = 2):
+    linspace = torch.linspace(-.5, .5, N).unsqueeze(1)
+    prior = torch.cat( (linspace, - linspace),  dim=1)
+    
+    halfN = int(N/2)
+    m1 = 1/2*torch.ones(d)
+    v = 1/200*torch.eye(d)
+
+    normal1 = torch.distributions.MultivariateNormal(m1, v)
+    normal2 = torch.distributions.MultivariateNormal(-m1, v)
+    target1 = normal1.sample((halfN,))
+    target2 = normal2.sample((halfN,))
+    target = torch.cat( (target1, target2) )
+
+    return target, prior
 
 
 def neals_funnel(n_samples, st=314):
@@ -23,7 +41,7 @@ def neals_funnel(n_samples, st=314):
 def generate_circles(N, st=42, r=.3, delta=.5):
     '''
     1. Generate three rings target, each ring has N points sampled uniformly.
-    The rings have a radius of r and a separation of _delta.
+    The rings have a radius of r and a separation of delta.
 
     2. Generate prior, which is a Gaussian with very small variance centered at
     leftmost point of the rightmost ring.
@@ -69,35 +87,29 @@ def generate_bananas(N, st, d=2):
     squared = torch.cat((squared1, squared2))
     target = torch.stack((xs, squared)).transpose(0, 1)
 
-    # mean and variance of prior distribution
     m_p = torch.tensor([0, 4.0])
     v_p = 1 / 2000 * torch.eye(d)
-
-    # Draw samples from the normal distribution
-    multivariate_normal = torch.distributions.MultivariateNormal(m_p, v_p)
-    prior = multivariate_normal.sample((N,))
+    norm = torch.distributions.MultivariateNormal(m_p, v_p)
+    prior = norm.sample((N,))
 
     return target, prior
 
 
 def generate_cross(N, st, d=2):
-    samples = neals_funnel(int(N/4))
-    samples1 = rotate_points(samples, 90)
-    samples2 = rotate_points(samples, 180)
-    samples3 = rotate_points(samples, 270)
-
-    new_samples = np.append(samples, samples1, axis=0)
-    new_samples = np.append(new_samples, samples2, axis=0)
-    target = torch.from_numpy(np.append(new_samples, samples3, axis=0))
-    # TODO: shorten the previous lines using torch.stack or so
-
-    # mean and variance of prior distribution
+    rot_num = 4 # number of rotations
+    samples = neals_funnel(int(N/rot_num))
+    rotations = (360/rot_num)*np.arange(rot_num)
+    
+    new_samples = []
+    for rotation in rotations:
+        rotated_samples = rotate_points(samples, rotation)
+        new_samples.append(rotated_samples)
+    
+    target = torch.from_numpy(np.concatenate(new_samples, axis=0))
     m_p = torch.zeros(d)
     v_p = 1/2000*torch.eye(d)
-
-    # Draw samples from the prior normal distribution
-    multivariate_normal = torch.distributions.MultivariateNormal(m_p, v_p)
-    prior = multivariate_normal.sample((N,))
+    norm = torch.distributions.MultivariateNormal(m_p, v_p)
+    prior = norm.sample((N,))
 
     return target, prior
 

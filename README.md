@@ -113,6 +113,7 @@ Supported targets
 <p align="center">
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/Cross.gif" width="500" /> 
 </p>
+
 * `GMM`: two Gaussians
 <p align="center">
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/GMM.gif" width="500" /> 

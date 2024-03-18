@@ -115,7 +115,7 @@ Supported targets
 </p>
 * `GMM`: two Gaussians
 <p align="center">
-  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/tsallis,alpha=3,lambd=0.01,tau=0.001,gauss,0.05,900,primal,100,GMM,state=42.gif" width="500" /> 
+  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/GMM.gif" width="500" /> 
 </p>
 
 

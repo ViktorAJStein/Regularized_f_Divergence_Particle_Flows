@@ -11,6 +11,32 @@ def generate_prior_target(N, st, target):
         return generate_bananas(N, st=st)
     elif target == 'GMM':
         return generate_GMM(N, st=st)
+    elif target == 'four_wells':
+        return generate_four_wells(N, st=st)
+
+def generate_four_wells(N, st, d = 2):
+    quarterN = int(N/4)
+    m1 = 1/2*torch.ones(d)
+    M = torch.tensor([[1.0, 0.0], [0.0, -1.0]])
+    m2 = torch.matmul(M,m1)
+    v = 1/200*torch.eye(d)
+    torch.manual_seed(st)
+    normal1 = torch.distributions.MultivariateNormal(m1, v)
+    normal2 = torch.distributions.MultivariateNormal(-m1, v)
+    normal3 = torch.distributions.MultivariateNormal(m2, v)
+    normal4 = torch.distributions.MultivariateNormal(-m2, v)
+    target1 = normal1.sample((quarterN,))
+    target2 = normal2.sample((quarterN,))
+    target3 = normal3.sample((quarterN,))
+    target4 = normal4.sample((quarterN,))
+    target = torch.cat( (target1, target2, target3, target4) )
+    
+    torch.manual_seed(st)
+    prior = normal1.sample((N,))
+    
+    print(f"prior shape = {prior.shape}, target shape = {target.shape}")
+    
+    return target, prior
 
 def generate_GMM(N, st, d = 2):
     # target = sum of two Gaussians

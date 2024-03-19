@@ -7,7 +7,7 @@ A python script to evaluate and plot the discretized Wasserstein-2 gradient flow
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/Bananas.gif" width="500" /> 
 </p>
 
-References
+Overview
 ---------------------------
 This repository provides the method
 
@@ -43,12 +43,12 @@ Contents
 ---------------------------
 1. Required packages
 2. Supported kernels
-3. Supported f-divergences / entropy functions
+3. Supported $f$-divergences / entropy functions
 4. Supported targets
 
 Required packages
 ---------------------------
-This scirpy requires the following Python packages. We tested the code with Python 3.11.7 and the following package versions:
+This script requires the following Python packages. We tested the code with Python 3.11.7 and the following package versions:
 
 * torch 2.1.2
 * scipy 1.12.0

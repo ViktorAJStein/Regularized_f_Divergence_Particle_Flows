@@ -114,11 +114,15 @@ Supported targets
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/Cross.gif" width="500" /> 
 </p>
 
-* `GMM`: two Gaussians
+* `GMM`: two exactly equal Gaussians which have a symmetry axis at $y = - x$
 <p align="center">
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/GMM.gif" width="500" /> 
 </p>
 
+* `four_wells`: a sum of four Gaussians, which don't have a symmetry axis. The initial measure is initiated at one of the Gaussians.
+<p align="center">
+  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/four_wells.gif" width="500" /> 
+</p>
 
 
 Speed

@@ -38,6 +38,7 @@ Scripts to exactly reproduce the figures in the preprint are soon to come. An ex
 Feedback / Contact
 ---------------------------
 This code is written and maintained by [Viktor Stein](mailto:stein@math.tu-berlin.de). Any comments, feedback, questions and bug reports are welcome!
+Alternatively you can use the [GitHub issue tracker](https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/issues).
 
 Contents
 ---------------------------

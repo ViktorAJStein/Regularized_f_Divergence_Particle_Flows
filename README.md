@@ -121,7 +121,7 @@ Supported targets
 
 * `four_wells`: a sum of four Gaussians, which don't have a symmetry axis. The initial measure is initiated at one of the Gaussians.
 <p align="center">
-  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/four_wells.gif" width="500" /> 
+  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/four_wells.png" width="500" /> 
 </p>
 
 

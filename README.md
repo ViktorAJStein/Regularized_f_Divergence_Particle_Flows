@@ -57,7 +57,7 @@ This scirpy requires the following Python packages. We tested the code with Pyth
 * pillow 10.2.0 (if you want to generate a gif of the evolution of the flow)
 * matplotlib 3.8.2
 * pot 0.9.3 (if you want to evaluate the exact Wasserstein-2 loss along the flow)
-* warnings
+* sklearn.datasets 1.4.1.post1 (for more targets)
 
 Usually code is also compatible with some later or earlier versions of those packages.
 
@@ -123,6 +123,10 @@ Supported targets
 <p align="center">
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/four_wells.png" width="500" /> 
 </p>
+
+* `swiss_role_2d`:
+
+We also include some target measures from `sklearn.data`: `moons`, `annulus`, and the three-dimensional data sets `swiss_role_3d` and `s_curve`.
 
 
 Speed

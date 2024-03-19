@@ -133,7 +133,7 @@ We also include some target measures from `sklearn.data`: `moons`, `annulus`
 and the three-dimensional data sets `swiss_role_3d` and `s_curve`.
 <p align="center">
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/s_curve.gif" width="300" />  &emsp; &emsp; &emsp;
-  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/s_curve.gif" width="300" /> 
+  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/swiss_roll_3d.gif" width="300" /> 
 </p>
 
 Speed

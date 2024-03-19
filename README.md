@@ -19,7 +19,7 @@ used to produce the numerical experiments for the paper
 
 If you use this code please cite this preprint, preferably like this:
 ```
-@unpublished{NSS24,
+@unpublished{NSSR24,
  author = {Neumayer, Sebastian and Stein, Viktor and Steidl, Gabriele and Rux, Nicolaj},
  title = {Wasserstein Gradient Flows for Moreau Envelopes of $f$-Divergences in Reproducing Kernel Hilbert Spaces},
  note = {ArXiv preprint},

@@ -22,11 +22,10 @@ def MMD_reg_f_div_flow(
         N=900,  # number of particles
         lambd=.01,  # regularization
         step_size=.001,  # step size for Euler forward discretization
-        max_time=100,  # maximal time horizon for simulation
+        max_time=50,  # maximal time horizon for simulation
         plot=True,  # plot particles along the evolution
         arrows=False,  # plots arrows at particles to show their gradients
         timeline=True,  # plots timeline of functional value along the flow
-        d=2,  # dimension of the ambient space in which the particles live
         kern=IMQ,  # kernel
         mode='primal',  # if mode=='dual' the dual problem is solved as well
         div=tsallis,  # entropy function
@@ -71,8 +70,7 @@ def MMD_reg_f_div_flow(
     X = target.to(my_device)  # samples of target measure
     torch.save(X, folder_name + f'/target.pt')
     M = Y.shape[0]
-    
-    # now start particle descent
+    d = len(X[0])  # dimension of the ambient space in which the particles live
     func_values = []  # objective value during the algorithm
     KALE_values = torch.zeros(iterations)
     dual_values = []
@@ -94,22 +92,32 @@ def MMD_reg_f_div_flow(
     for n in range(iterations):
         # plot the particles ten times per unit time interval
         if plot and not n % 1000 or n in 1e2*np.arange(1, 10):
-            Y_cpu = Y.cpu()
-            plt.figure()
-            plt.plot(target[:, 1], target[:, 0], '.', c='orange', ms=2)
-            plt.plot(Y_cpu[:, 1], Y_cpu[:, 0], 'b.', ms=2)
-            if arrows and n > 0:
-                minus_grad_cpu = - h_star_grad.cpu()
-                plt.quiver(Y_cpu[:, 1], Y_cpu[:, 0], minus_grad_cpu[:, 1], minus_grad_cpu[:, 0], angles='xy', scale_units='xy', scale=1)
-            if target_name == 'circles':
-                plt.ylim([-1.0, 1.0])
-                plt.xlim([-2.0, 0.5])   
-            plt.gca().set_aspect('equal')
-            plt.axis('off')
             img_name = f'/Reg_{divergence}{alpha}flow,lambd={lambd},tau={step_size},{kernel},{sigma},{N},{max_time},{target_name}-{n}.png'
-            plt.savefig(folder_name + img_name, dpi=300, bbox_inches='tight')
-            plt.close()
-
+            Y_cpu = Y.cpu()
+            if d == 2:
+                plt.figure()
+                plt.plot(target[:, 1], target[:, 0], '.', c='orange', ms=2)
+                plt.plot(Y_cpu[:, 1], Y_cpu[:, 0], 'b.', ms=2)
+                if arrows and n > 0:
+                    minus_grad_cpu = - h_star_grad.cpu()
+                    plt.quiver(Y_cpu[:, 1], Y_cpu[:, 0], minus_grad_cpu[:, 1], minus_grad_cpu[:, 0], angles='xy', scale_units='xy', scale=1)
+                if target_name == 'circles':
+                    plt.ylim([-1.0, 1.0])
+                    plt.xlim([-2.0, 0.5])   
+                plt.gca().set_aspect('equal')
+                plt.axis('off')
+                plt.savefig(folder_name + img_name, dpi=300, bbox_inches='tight') 
+                plt.close()
+            if d == 3: # TODO: this needs to be checked
+                fig = plt.figure(figsize=(8, 6))
+                ax = fig.add_subplot(111, projection="3d")
+                fig.add_axes(ax)
+                ax.view_init(azim=-66, elev=12)
+                ax.scatter(target[:, 0], target[:, 1], target[:, 2], c='orange', s=2)
+                ax.scatter(Y_cpu[:, 0], Y_cpu[:, 1], Y_cpu[:, 2], 'b.', s=2)
+                plt.savefig(folder_name + img_name, dpi=300, bbox_inches='tight')
+                plt.close()
+              
         # construct kernel matrix
         kxy = kern(X[:, None, :], Y[None, :, :], sigma)
         kyy = kern(Y[:, None, :], Y[None, :, :], sigma)
@@ -345,4 +353,4 @@ def MMD_reg_f_div_flow(
 
     return func_values, MMD, W2, KALE_values
 
-MMD_reg_f_div_flow(alpha = 3, target_name = 'GMM', N = 900, lambd=.01, verbose=False, sigma=.05, mode='primal', annealing=False, kern=IMQ)
+MMD_reg_f_div_flow(alpha = .5, target_name = 'swiss_roll_3d', N = 400, lambd=5, verbose=True, sigma=.05, mode='primal', annealing=True, kern=gauss, compute_W2=True, arrows=True)

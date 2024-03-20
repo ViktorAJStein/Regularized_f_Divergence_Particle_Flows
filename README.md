@@ -125,6 +125,9 @@ Supported targets
 </p>
 
 * `swiss_role_2d`:
+* <p align="center">
+  <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/swiss_roll_2d.gif" width="500" /> 
+</p>
 
 We also include some target measures from `sklearn.data`: `moons`, `annulus`
 <p align="center">

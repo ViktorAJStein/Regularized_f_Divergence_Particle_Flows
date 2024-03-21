@@ -76,6 +76,7 @@ Matérn-$`\frac{5}{2}`$   | `matern2`  | $\left(1 + \frac{\sqrt{5} \| x - y \|}{
 $B_{2\ell+1}$-Spline     | `compact`  | $(1 - \| x - y \|)_{+}^{s + 2}$
 Another Spline           | `compact2` | $(1 - \| x - y \|)_{+}^{s + 3} \left( (s + 3) \| x - y \| + 1 \right)$
 inverse log              | `inv_log`  | $\left(s + \ln(1 + \| x - y \|^2)\right)^{-\frac{1}{2}}$
+inverse quadric          | `inv_quad` | $(1 + s \| x - y \|^2)^{-1}$
 
 
 Supported f-divergences / entropy functions

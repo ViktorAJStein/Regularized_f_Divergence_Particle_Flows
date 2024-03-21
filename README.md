@@ -77,6 +77,7 @@ $B_{2\ell+1}$-Spline     | `compact`  | $(1 - \| x - y \|)_{+}^{s + 2}$
 Another Spline           | `compact2` | $(1 - \| x - y \|)_{+}^{s + 3} \left( (s + 3) \| x - y \| + 1 \right)$
 inverse log              | `inv_log`  | $\left(s + \ln(1 + \| x - y \|^2)\right)^{-\frac{1}{2}}$
 inverse quadric          | `inv_quad` | $(1 + s \| x - y \|^2)^{-1}$
+student t                | `student`  | $\frac{\Gamma\left(\frac{s + 1}{2}\right)}{\sqrt{s \pi} \Gamma\left(\frac{s}{2}\right)} \left(1 + \frac{1}{s} \| x - y \|^2\right)^{- \frac{s + 1}{2}}$
 
 
 Supported f-divergences / entropy functions

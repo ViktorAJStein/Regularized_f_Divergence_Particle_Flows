@@ -83,7 +83,7 @@ We also implemented the following two "$W_2$-metrizing kernels", which metrize t
 However, they are unbounded, not translation invariant (and one is not differentiable on the diagonal), so they do not fulfill our assumptions.
 Kernel                   | Name       | Expression $K(x, y) =$
 -------------------------| -----------| ----------------------------------------------
-$W_2$-metrizing I        | `W2_1`     | $\exp\left(- \frac{1}{2 s} \| x - y \|^2\right) + \sum_{k = 1}^{d} | x_k y_k |$ 
+$W_2$-metrizing I        | `W2_1`     | $\exp\left(- \frac{1}{2 s} \| x - y \|^2\right) + \sum_{k = 1}^{d} \| x_k y_k \|$ 
 $W_2$-metrizing II       | `W2_2`     | $\exp\left(- \frac{1}{2 s} \| x - y \|^2\right) + \sum_{k = 1}^{d} x_k^2 y_k^2$
 
 Supported f-divergences / entropy functions

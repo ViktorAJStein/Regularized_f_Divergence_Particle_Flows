@@ -84,10 +84,8 @@ However, they are unbounded, not translation invariant (and one is not different
 Kernel                   | Name       | Expression $K(x, y) =$
 -------------------------| -----------| ----------------------------------------------
 $W_2$-metrizing I        | `W2_1`     | $\exp\left(- \frac{1}{2 s} \| x - y \|^2\right) + \sum_{k = 1}^d \| x_k y_k \|$ 
-$W_2$-metrizing II       | `W2_2`     | $\exp\left(- \frac{1}{2 s} \| x - y \|^2\right) + \sum_{k = 1}^d x_k^2 y_k^2$
+$W_2$-metrizing II       | `W2_2`     | $\exp\left(- \frac{1}{2 s} \| x - y \|^2\right) + \sum_{k = 1}^d x_k^2 y_k^2$ $\left( \sum_{k=1}^n a_k b_k \right)^2 \leq \left( \sum_{k=1}^n a_k^2 \right) \left( \sum_{k=1}^n b_k^2 \right)$
 
-**The Cauchy-Schwarz Inequality**
-$$\left( \sum_{k=1}^n a_k b_k \right)^2 \leq \left( \sum_{k=1}^n a_k^2 \right) \left( \sum_{k=1}^n b_k^2 \right)$$
 Supported f-divergences / entropy functions
 ---------------------------
 The following entropy functions each have an infinite recession constant if $\alpha > 1$.

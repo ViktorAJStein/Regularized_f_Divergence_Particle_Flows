@@ -174,7 +174,7 @@ def rec_const(div, alpha = None):
         return 0
         
     if div == 'jensen_shannon':
-        return np.sqrt(2)
+        return np.log(2)
         
     if div == 'perimeter':
         if alpha > 0:

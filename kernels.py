@@ -11,160 +11,199 @@ def gauss_der(x, y, s):
     return 1 / s * (-1 / (2*s) * torch.linalg.vector_norm(diff, dim=2, keepdim=True)**2).exp() * diff
 
 
-def IMQ(x, y, s):
+def imq(x, y, s):
     return (s + (((x - y) ** 2)).sum(axis=-1)) ** -(1/2)
     
-def IMQ_der(x, y, s):
+def imq_der(x, y, s):
     diff = y[:,None, :] - x[None,:, :]
     pref = (torch.linalg.vector_norm(diff, dim=2, keepdim=True)**2 + s) ** -(3/2)
     return pref * diff
+ 
     
-def Matern(x, y, sigma): # nu = 3/2
+def matern(x, y, s): # nu = 3/2
     r = ((x - y) ** 2).sum(axis=-1)
-    return (1 + torch.sqrt(3*r) / sigma) * (- torch.sqrt(3*r) / sigma).exp()
-    #2**(1 - nu) / sp.special.gamma(nu) * (np.sqrt(2 * nu * r) / sigma)**nu * sp.special.kv(nu, np.sqrt(2 * nu * r)/ sigma)
+    return (1 + torch.sqrt(3*r) / s) * (- torch.sqrt(3*r) / s).exp()
+    #2**(1 - nu) / sp.special.gamma(nu) * (np.sqrt(2 * nu * r) / s)**nu * sp.special.kv(nu, np.sqrt(2 * nu * r)/ s)
     
-def Matern_der(x, y, sigma): # nu = 3/2
+def matern_der(x, y, s): # nu = 3/2
     diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
-    return 3/sigma**2 * (- 3 / sigma * r).exp() * diff
+    return 3/s**2 * (- 3 / s * r).exp() * diff
     
-def Matern2(x, y, sigma): # nu = 5/2
+    
+def matern2(x, y, s): # nu = 5/2
     r = ((x - y) ** 2).sum(axis=-1)
-    return (1 + torch.sqrt(5*r) / sigma + 5*r/(3*sigma**2) ) * (- torch.sqrt(5*r) / sigma).exp()
+    return (1 + torch.sqrt(5*r) / s + 5*r/(3*s**2) ) * (- torch.sqrt(5*r) / s).exp()
 
-def Matern2_der(x, y, sigma): # nu = 5/2
+def matern2_der(x, y, s): # nu = 5/2
     diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)**2
-    return 5/6 * 1/sigma**3 * (torch.sqrt(5*r) + sigma) * (- torch.sqrt(5*r) / sigma).exp() * diff
+    return 5/6 * 1/s**3 * (torch.sqrt(5*r) + s) * (- torch.sqrt(5*r) / s).exp() * diff
+    
     
 def compact(x, y, q): # this expression depends on the dimension of the data points being d = 2 (or more generally, that floor(d/2) = 1)
     r = torch.sqrt(((x - y) ** 2).sum(axis=-1))
     return torch.nn.functional.relu(1 - r)**(q + 2)
     
-def compact_der(x, y, q):
+def compact_der(x, y, s):
     diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
-    return diff/r*(q+2)/2*torch.nn.functional.relu(1 - r)**(q + 1)
+    return diff/r* (s + 2) *torch.nn.functional.relu(1 - r)**(s + 1)
+    
 
-def compact2(x, y, q):  # this expression depends on the dimension of the data points being d = 2
+def compact2(x, y, s):  # this expression depends on the dimension of the data points being d = 2
     r = torch.sqrt(((x - y) ** 2).sum(axis=-1))
-    return torch.nn.functional.relu(1 - r)**(q + 3) * ( (q + 3)*r + 1 ) 
+    return torch.nn.functional.relu(1 - r)**(s + 3) * ( (s + 3)*r + 1 ) 
     
-def compact2_der(x, y, q):
+def compact2_der(x, y, s):
     diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
-    return 1/2*diff*(q+3)*(q+4)*torch.nn.functional.relu(1 - r)**(q + 2)
+    return 1/2 * diff* (s + 3) * (s + 4) * torch.nn.functional.relu(1 - r)**(s + 2)
 
     
-def inv_quad(x, y, sigma):
+def inv_quad(x, y, s):
     r2 = ((x - y) ** 2).sum(axis=-1)
-    return 1/(1 + sigma*r2)
+    return 1/(1 + s*r2)
     
-def inv_quad_der(x, y, sigma):
+def inv_quad_der(x, y, s):
     diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
-    return 2*sigma/(1 + sigma*r**2)**2 * diff
+    return 2*s/(1 + s*r**2)**2 * diff
+    
 
-def inv_log(x, y, sigma, beta = -1/2):
-    return (sigma + torch.log(1 + ((x - y)**2).sum(axis=-1)))**(beta)
+def inv_log(x, y, s, beta = -1/2):
+    return (s + torch.log( 1 + ((x - y)**2).sum(axis=-1) ) )**(beta)
  
-def inv_log_der(x, y, sigma, beta=-1/2):
+def inv_log_der(x, y, s, beta=-1/2):
     diff = x[:,None, :] - y[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
-    return 2*beta/(1 + r) * (sigma + torch.log(1 + r))**(beta - 1) * diff
+    return 2*beta/(1 + r) * (s + torch.log(1 + r))**(beta - 1) * diff
+    
+
+#does not work yet: device mismatch!
+def student(x, y, s):
+    s = torch.tensor([s], device='cuda')
+    prefactor = torch.special.gammaln( (s + 1)/2 ).exp() / torch.sqrt(torch.pi * s) * 1/torch.special.gammaln(s/2).exp()
+    return prefactor * (1 + (((x - y) ** 2)).sum(axis=-1) / s) ** (-1/2*(s + 1))
+    
+def student_der(x, y, s):
+    s = torch.tensor([s], device='cuda')
+    prefactor = torch.special.gammaln((s + 1)/2).exp() / torch.sqrt(torch.pi * s) * 1/torch.special.gammaln(s/2).exp()
+    diff = y[:,None, :] - x[None,:, :]
+    pref = prefactor * (1 + 1/s) * (1 + torch.linalg.vector_norm(diff, dim=2, keepdim=True)**2 / s) ** (-1/2*(s + 3))
+    return pref * diff
 
 # copied from KALE code    
-def energy_kernel(x, y, sigma):
-    dim = x.shape[-1]
-    x0 = torch.zeros(*([1] * (len(x.shape) - 1)), dim)
-
-    def norm_torch_sq(z):
-        ret = (z ** 2).sum(axis=-1)
-        return ret
-
-    def norm_numpy_sq(z):
-        return (z ** 2).sum(axis=-1)
-
+def energy(x, y, s):
     eps = 1e-8
 
-    if isinstance(x, torch.Tensor):
-        pxx0 = (norm_torch_sq(x - x0) + eps) ** (sigma / 2)
-        pyx0 = (norm_torch_sq(y - x0) + eps) ** (sigma / 2)
-        pxy = (norm_torch_sq(x - y) + eps) ** (sigma / 2)
-    elif isinstance(x, np.ndarray):
-        x0 = x0.detach().numpy()
-        pxx0 = (norm_numpy_sq(x - x0) + eps) ** (sigma / 2)
-        pyx0 = (norm_numpy_sq(y - x0) + eps) ** (sigma / 2)
-        pxy = (norm_numpy_sq(x - y) + eps) ** (sigma / 2)
-    else:
-        raise ValueError(f"type of x ({type(x)}) not understood")
+    xx0 = ( (x**2).sum(axis=-1) + eps) ** (s / 2)
+    yx0 = ( (y**2).sum(axis=-1) + eps) ** (s / 2)
+    xy = ( (x**2).sum(axis=-1) + eps) ** (s / 2)
 
-    ret = 0.5 * (pxx0 + pyx0 - pxy)
-    # pretending eps = 0, this is 1/2 * (|| x ||^sigma + || y ||^sigma - || x - y ||^sigma)
+    ret = 0.5 * (xx0 + yx0 - xy)
+    # pretending eps = 0, this is 1/2 * (|| x ||^s + || y ||^s - || x - y ||^s)
     return ret
     
-def energy_kernel_der(x, y, sigma):
-    dim = x.shape[-1]
-    x0 = torch.zeros(*([1] * (len(x.shape) - 1)), dim)
-
-    def norm_torch_sq(z):
-        ret = (z ** 2).sum(axis=-1)
-        return ret
-
-    def norm_numpy_sq(z):
-        return (z ** 2).sum(axis=-1)
-    
+def energy_der(x, y, s):
     eps = 1e-8
 
-    if isinstance(x, torch.Tensor):
-        pxx0 = (norm_torch_sq(x - x0) + eps) ** (sigma / 2 - 1)
-        pxy = (norm_torch_sq(x - y) + eps) ** (sigma / 2 - 1)
-    elif isinstance(x, np.ndarray):
-        x0 = x0.detach().numpy()
-        pxx0 = (norm_numpy_sq(x - x0) + eps) ** (sigma / 2 - 1)
-        pxy = (norm_numpy_sq(x - y) + eps) ** (sigma / 2 - 1)
-    else:
-        raise ValueError(f"type of x ({type(x)}) not understood")
-
-    ret = sigma/2 * ( pxx0*x - pxy*(x- y) )
+    pxx0 = ((x**2).sum(axis=-1) + eps) ** (s / 2 - 1)
+    pxy = ( ( (x - y) **2).sum(axis=-1) + eps) ** (s / 2 - 1)
+ 
+    ret = s/2 * ( pxx0*x - pxy*(x- y) )
     
     
-def emb_const(kern, sigma):
+def emb_const(kern, s):
     # returns embedding constant of H_K \hookrightarrow C_0
-    if kern in [gauss, Matern, Matern2, compact, compact2]:
+    if kern in [gauss, matern, matern2, compact, compact2, laplace, multiquad, sinc, inv_quad]:
         return 1
-    elif kern in [IMQ, inv_log]:
-        return np.sqrt(sigma**(1/4)) 
+    elif kern in [imq, inv_log]:
+        return np.sqrt(s**(1/4)) 
+    elif kern == logistic:
+        return np.sqrt(1/s)
+    elif kern == student:
+        s = torch.tensor([s])
+        prefactor = torch.special.gammaln( (s + 1)/2 ).exp() / torch.sqrt(torch.pi * s) * 1/torch.special.gammaln(s/2).exp()
+        return prefactor.item()
 
 
 # these kernels below do not yield sensible results
 # there are multiple reasons, i.e the thin plate spline
-# is not positive definite,
+# is not positive definite, sinc is not universal
 
-def thin_plate_spline(x, y, sigma):
+def thin_plate_spline(x, y, s):
     tol=1e-16
     r = ((x - y) ** 2).sum(axis=-1)**(1/2)
     return r * torch.log(r**r + tol)
 
-def thin_plate_spline_der(x, y, sigma):
+def thin_plate_spline_der(x, y, s):
     tol=1e-16
     diff = x[:,None, :] - y[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return 1/2*diff*(torch.log(r**2 + tol) + 1)
-    
-def squared_dot(x, y, sigma):
+
+# not radial    
+def squared_dot(x, y, s):
     return 1/2*torch.dot(x,y)**2
 
-def squared_dot(x, y, sigma):
+def squared_dot(x, y, s):
     return y
 
-# not positive definite?
-def multiquad(x, y, sigma):
-    r2 = ((x - y) ** 2).sum(axis=-1)
-    return torch.sqrt(1 + sigma*r2)
+#not universal    
+def sinc(x, y, s):
+    r = ((x - y) ** 2).sum(axis=-1)**(1/2)
+    return torch.sin(s*r)/r
     
-def multiquad_der(x, y, sigma):
+def sinc_der(x, y, s):
     diff = x[:,None, :] - y[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
-    return sigma/torch.sqrt(1 + sigma*r**2) * diff
+    return (torch.sin(s*r) / r**(3/2) - s * torch.cos(s * r) / r**2 ) * diff
+
+# not positive definite?
+def multiquad(x, y, s):
+    r2 = ((x - y) ** 2).sum(axis=-1)
+    return torch.sqrt(1 + s*r2)
+    
+def multiquad_der(x, y, s):
+    diff = x[:,None, :] - y[None,:, :]
+    r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
+    return s/torch.sqrt(1 + s*r**2) * diff
+
+    
+# see Ex. 4 in Modeste, Dombry (these kernels metrizes the W2-metric),
+# but are not differentiable, not translation-invariant and not bounded   
+def W2_1(x, y, s):
+    return gauss(x, y, s) + (torch.abs(x) * torch.abs(y)).sum(axis=-1)
+
+def W2_1_der(x, y, s):
+    return gauss_der(x, y, s) + torch.sign(x) * y
+
+def W2_2(x, y, s):
+    return gauss(x, y, s) + (x**2 * y**2).sum(axis=-1)
+
+def W2_2_der(x, y, s):
+    return gauss_der(x, y, s) + 2*x*y*y
+    
+
+# not differentiable at x = y    
+def laplace(x, y, s):
+    return (-1 / s * (x - y).abs()).sum(axis=-1).exp()
+    
+def laplace_der(x, y, s):
+    diff = x[:,None, :] - y[None,:, :]
+    r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
+    return - 1/(r * s) * (-r/s).exp() * diff
+
+    
+# not smooth
+def logistic(x, y, s):
+    r = (x - y).abs()
+    expp = (-1 / s * r).sum(axis=-1).exp()
+    return  expp / (s * (1 + expp)**2)
+    
+def logistic_der(x, y, s):
+    diff = x[:,None, :] - y[None,:, :]
+    r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
+    expp = (1 / s * r).sum(axis=-1).exp()
+    return expp * (1 - expp) / (s**2 * (expp + 1)**3) * diff / r

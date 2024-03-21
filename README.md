@@ -65,17 +65,17 @@ Usually code is also compatible with some later or earlier versions of those pac
 Supported kernels
 ---------------------------
 The following kernels all are radial and twice-differentiable, hence fulfilling all assumptions in the paper.
-We denote the reLU by $(x)_+ := \max(x, 0)$ and the Euclidean norm by $\| \cdot \|$.
+We denote the reLU by $(x)_+ := \max(x, 0)$ and the Euclidean norm by $\| \cdot \|$ and $s, q > 0$ the shape parameters.
 
 Kernel                   | Name       | Expression $K(x, y) =$
 -------------------------| -----------| ----------------------------------------------
-inverse multiquadric     | `IMQ`      | $(\sigma + \| x - y \|^2)^{-\frac{1}{2}}$ 
-Gauss                    | `gauss`    | $\exp\left(- \frac{1}{2 \sigma} \| x - y \|^2\right)$
-Matérn-$`\frac{3}{2}`$   | `Matern`   | $\left(1 + \frac{\sqrt{3} \| x - y \|}{\sigma}\right) \exp\left(- \frac{\sqrt{3} \| x - y \|}{\sigma}\right)$
-Matérn-$`\frac{5}{2}`$   | `Matern2`  | $\left(1 + \frac{\sqrt{5} \| x - y \|}{\sigma} + \frac{5 \| x - y \|^2}{3 \sigma^2} \right) \exp\left(- \frac{\sqrt{5} \| x - y \|}{\sigma}\right)$
+inverse multiquadric     | `IMQ`      | $(s + \| x - y \|^2)^{-\frac{1}{2}}$ 
+Gauss                    | `gauss`    | $\exp\left(- \frac{1}{2 s} \| x - y \|^2\right)$
+Matérn-$`\frac{3}{2}`$   | `Matern`   | $\left(1 + \frac{\sqrt{3} \| x - y \|}{s}\right) \exp\left(- \frac{\sqrt{3} \| x - y \|}{s}\right)$
+Matérn-$`\frac{5}{2}`$   | `Matern2`  | $\left(1 + \frac{\sqrt{5} \| x - y \|}{s} + \frac{5 \| x - y \|^2}{3 s^2} \right) \exp\left(- \frac{\sqrt{5} \| x - y \|}{s}\right)$
 $B_{2\ell+1}$-Spline     | `compact`  | $(1 - \| x - y \|)_{+}^{q + 2}$
 Another Spline           | `compact2` | $(1 - \| x - y \|)_{+}^{q + 3} \left( (q + 3) \| x - y \| + 1 \right)$
-inverse log              | `inv_log`  | $\left(\sigma + \ln(1 + \| x - y \|^2)\right)^{-\frac{1}{2}}$
+inverse log              | `inv_log`  | $\left(s + \ln(1 + \| x - y \|^2)\right)^{-\frac{1}{2}}$
 
 
 Supported f-divergences / entropy functions

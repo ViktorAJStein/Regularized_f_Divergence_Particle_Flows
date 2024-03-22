@@ -1,5 +1,4 @@
 import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 from warnings import warn
 import torch
 import ot
@@ -20,7 +19,7 @@ my_device = 'cuda' if use_cuda else 'cpu'
 def MMD_reg_f_div_flow(
         alpha=4,  # divergence parameter
         s=.1,  # kernel parameter
-        N=900,  # number of target particles
+        N=300,  # number of target particles
         M=900,  # number of prior particles
         lambd=.01,  # regularization
         step_size=.001,  # step size for Euler forward discretization
@@ -60,19 +59,19 @@ def MMD_reg_f_div_flow(
     div_conj_der = globals().get(div.__name__ + '_conj_der')  # derivative of div_conj
     div_der = globals().get(div.__name__ + '_der')  # derivative of div
 
-    folder_name = f"{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{s},{N},{max_time},{target_name},state={st}_{annealing}={annealing_factor}"
+    folder_name = f"{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name},state={st}_{annealing}={annealing_factor}"
     make_folder(folder_name)
 
     if verbose and B:
         print(f'Kernel is {kernel}, embedding constant is {round(B,2)}, recession constant is {div_reces}')
 
-    target, prior = generate_prior_target(N, st, target_name) 
+    target, prior = generate_prior_target(N, M, st, target_name) 
     torch.save(target, folder_name + f'/target.pt')
 
-    Y = prior.clone().to(my_device)  # samples of prior distribution
-    X = target.to(my_device)  # samples of target measure
-    M = Y.shape[0]
-    d = len(X[0])  # dimension of the ambient space in which the particles live
+    X = prior.clone().to(my_device)  # samples of prior distribution
+    Y = target.to(my_device)  # samples of target measure
+    assert M == X.shape[0]
+    d = len(Y[0])  # dimension of the ambient space in which the particles live
     func_values = []  # objective value during the algorithm
     KALE_values = torch.zeros(iterations)
     dual_values = []
@@ -86,7 +85,7 @@ def MMD_reg_f_div_flow(
     relative_pseudo_duality_gaps = []
     lower_bds_lambd = []
 
-    kxx = kern(X[:, None, :], X[None, :, :], s)
+    kxx = kern(Y[:, None, :], Y[None, :, :], s)
 
     if compute_W2:
         a, b = torch.ones(N) / N, torch.ones(N) / N
@@ -95,9 +94,9 @@ def MMD_reg_f_div_flow(
         # plot the particles
         if plot and not n % 1000 or n in 1e2*np.arange(1, 10):
             if annealing:
-                img_name = f'/Reg_{divergence}{alpha}flow,annealing,tau={step_size},{kernel},{s},{N},{max_time},{target_name}-{n}.png'
+                img_name = f'/Reg_{divergence}{alpha}flow,annealing,tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
             else:
-                img_name = f'/Reg_{divergence}{alpha}flow,lambd={lambd},tau={step_size},{kernel},{s},{N},{max_time},{target_name}-{n}.png'
+                img_name = f'/Reg_{divergence}{alpha}flow,lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
 
             Y_cpu = Y.cpu()
             if d == 2:
@@ -125,8 +124,8 @@ def MMD_reg_f_div_flow(
                 plt.close()
 
         # construct kernel matrix
-        kxy = kern(X[:, None, :], Y[None, :, :], s)
-        kyy = kern(Y[:, None, :], Y[None, :, :], s)
+        kxy = kern(Y[:, None, :], X[None, :, :], s)
+        kyy = kern(X[:, None, :], X[None, :, :], s)
         upper_row = torch.cat((kxx, kxy), dim=1)
         lower_row = torch.cat((kxy.t(), kyy), dim=1)
         K = torch.cat((upper_row, lower_row), dim=0)
@@ -136,7 +135,7 @@ def MMD_reg_f_div_flow(
         # calculate 1/2 MMD(X, Y)^2 and W2 metric between particles and target
         MMD[n] = (0.5 * (kxx.sum() / N ** 2 + kyy.sum() / M ** 2 - 2 * kxy.sum() / (N * M))).item()
         if compute_W2:
-            M2 = ot.dist(X, Y, metric='sqeuclidean')
+            M2 = ot.dist(Y, X, metric='sqeuclidean')
             W2[n] = ot.emd2(a, b, M2)
 
         # annealing
@@ -295,11 +294,11 @@ def MMD_reg_f_div_flow(
         if plot and save_opts and not n % 1e5:
             torch.save(q_torch, f'{folder_name}/q_at_{n}.pt')
 
-        Z = torch.cat((X, Y))
+        Z = torch.cat((Y, X))
         if div_reces != float('inf'):
-            temp = q_torch.view(M+N, 1, 1) * kern_der(Y, Z, s)
+            temp = q_torch.view(M+N, 1, 1) * kern_der(X, Z, s)
         else:
-            temp = - kern_der(Y, Y, s) + q_torch.view(N, 1, 1) * kern_der(Y, X, s)
+            temp = - kern_der(X, X, s) + q_torch.view(N, 1, 1) * kern_der(X, Y, s)
 
         h_star_grad = - 1 / (lambd * M) * torch.sum(temp, dim=0)
         if plot and save_opts and not n % 1e5:
@@ -308,9 +307,9 @@ def MMD_reg_f_div_flow(
         # don't save particle position in every iteration (conserves memory)
         if not n % 1e4 or n in 100*np.arange(1, 10):
             torch.save(Y, f'{folder_name}/Y_at_{n}.pt')
-        Y -= step_size * h_star_grad
+        X -= step_size * h_star_grad
         
-    suffix = f',{lambd},{step_size},{N},{kernel},{s},{max_time},{target_name}'
+    suffix = f',{lambd},{step_size},{N},{M},{kernel},{s},{max_time},{target_name}'
     torch.save(func_values, folder_name + f'/Reg_{divergence}-{alpha}_Div_value_timeline{suffix}.pt')
     torch.save(MMD, folder_name + f'/Reg_{divergence}-{alpha}_Div_MMD_timeline{suffix}.pt')
     if compute_W2:
@@ -399,4 +398,4 @@ def MMD_reg_f_div_flow(
 
     return func_values, MMD, W2, KALE_values
 
-MMD_reg_f_div_flow(alpha = 5, target_name = 'circles', N = 900, lambd=.01, verbose=True, s=.05, annealing=False, kern=imq, compute_W2=False, arrows=True)
+MMD_reg_f_div_flow(alpha = 5, target_name = 'circles', N = 900, M = 900, lambd=.01, verbose=True, s=.05, annealing=False, kern=W2_1, compute_W2=False, arrows=True)

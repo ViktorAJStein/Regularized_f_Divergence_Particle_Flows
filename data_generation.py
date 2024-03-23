@@ -2,29 +2,29 @@ import numpy as np
 import torch
 from sklearn import datasets
 
-def generate_prior_target(N, st, target):
+def generate_prior_target(N, M, st, target):
     targets = ['circles', 'cross', 'bananas', 'GMM', 'four_wells', 'circles', 'moons', 'swiss_roll_2d', 'swiss_roll_3d', 's_curve', 'annulus']
     if target in targets:
-        return globals().get('generate_' + target)(N, st)
+        return globals().get('generate_' + target)(N, M, st)
     else:
         raise ValueError("Invalid target specified")
 
 
-def generate_four_wells(N, st, d = 2):
-    quarterN = int(N/4)
+def generate_four_wells(M, N, st, d = 2):
+    quarterM = int(M/4)
     m1 = 1/2*torch.ones(d)
-    M = torch.tensor([[1.0, 0.0], [0.0, -1.0]])
-    m2 = torch.matmul(M,m1)
+    M1 = torch.tensor([[1.0, 0.0], [0.0, -1.0]])
+    m2 = torch.matmul(M1,m1)
     v = 1/200*torch.eye(d)
     torch.manual_seed(st)
     normal1 = torch.distributions.MultivariateNormal(m1, v)
     normal2 = torch.distributions.MultivariateNormal(-m1, v)
     normal3 = torch.distributions.MultivariateNormal(m2, v)
     normal4 = torch.distributions.MultivariateNormal(-m2, v)
-    target1 = normal1.sample((quarterN,))
-    target2 = normal2.sample((quarterN,))
-    target3 = normal3.sample((quarterN,))
-    target4 = normal4.sample((quarterN,))
+    target1 = normal1.sample((quarterM,))
+    target2 = normal2.sample((quarterM,))
+    target3 = normal3.sample((quarterM,))
+    target4 = normal4.sample((quarterM,))
     target = torch.cat( (target1, target2, target3, target4) )
     
     torch.manual_seed(st)
@@ -32,33 +32,33 @@ def generate_four_wells(N, st, d = 2):
     
     return target, prior
 
-def generate_GMM(N, st, d = 2):
+def generate_GMM(N, M, st, d = 2):
     # target = sum of two Gaussians
     # target and prior have the symmetry axis x = - y
     linspace = torch.linspace(-.5, .5, N).unsqueeze(1)
     prior = torch.cat( (linspace, - linspace),  dim=1)
     
-    halfN = int(N/2)
+    halfM = int(M/2)
     m1 = 1/2*torch.ones(d)
     v = 1/200*torch.eye(d)
     torch.manual_seed(st)
     normal = torch.distributions.MultivariateNormal(m1, v)
-    target = normal.sample((halfN,))
+    target = normal.sample((halfM,))
     target = torch.cat( (target, - target) )
 
     return target, prior
 
 
-def neals_funnel(n_samples, st=314):
+def neals_funnel(N, M, st=314):
     # Generate samples from Neal's funnel
     rs = np.random.RandomState(st)
-    y = rs.normal(0, 2, size=n_samples)
-    x = rs.normal(0, np.exp(y/3), size=n_samples)
+    y = rs.normal(0, 2, size=M)
+    x = rs.normal(0, np.exp(y/3), size=M)
     y = (y+7.5)
     return np.column_stack((x, y))
 
 
-def generate_circles(N, st=42, r=.3, delta=.5):
+def generate_circles(N, M, st=42, r=.3, delta=.5):
     '''
     1. Generate three rings target, each ring has N points sampled uniformly.
     The rings have a radius of r and a separation of delta.
@@ -67,27 +67,29 @@ def generate_circles(N, st=42, r=.3, delta=.5):
     leftmost point of the rightmost ring.
     Returns
     -------
-    X : np.array, shape = (N, 2)
-        target.
-    Y : np.array, shape = (N, 2)
+    prior  : np.array, shape = (N, 2)
         prior.
+    target : np.array, shape = (M, 2)
 
     '''
-    n = int(N/3)
+    n = int(M/3)
     # TODO: convert to pytorch code
     X = np.c_[r * np.cos(np.linspace(0, 2 * np.pi, n + 1)), r * np.sin(np.linspace(0, 2 * np.pi, n + 1))][:-1]  # noqa
     for i in [1, 2]:
         X = np.r_[X, X[:n, :]-i*np.array([0, (2 + delta) * r])]
-    rs = np.random.RandomState(st)
-    Y = rs.standard_normal((n*(2+1), 2)) / 100 - np.array([0, r])
+    target = torch.from_numpy(X).to(torch.float64)
+        
+    torch.manual_seed(st)
+    m = torch.tensor([0.0, -r])
+    v = 1e-4*torch.eye(2)
+    normal = torch.distributions.MultivariateNormal(m, v)
+    prior = normal.sample((N,))
+    
+    return target, prior
 
-    Y = torch.from_numpy(Y).to(torch.float64)
-    X = torch.from_numpy(X).to(torch.float64)
-    return X, Y
 
-
-def generate_bananas(N, st, d=2):
-    u = int(N/2)
+def generate_bananas(N, M, st, d=2):
+    u = int(M/2)
 
     torch.manual_seed(st)  # fix randomness
 
@@ -115,9 +117,9 @@ def generate_bananas(N, st, d=2):
     return target, prior
 
 
-def generate_cross(N, st, d=2):
+def generate_cross(N, M, st, d=2):
     rot_num = 4 # number of rotations
-    samples = neals_funnel(int(N/rot_num), st=st)
+    samples = neals_funnel(int(M/rot_num), st=st)
     rotations = (360/rot_num)*np.arange(rot_num)
     
     new_samples = []
@@ -146,14 +148,14 @@ def rotate_point(point, angle):
 def rotate_points(points, angle):
     return torch.tensor([rotate_point(point, angle) for point in points])
     
-def generate_swiss_roll_2d(N, st):
+def generate_swiss_roll_2d(N, M, st):
     torch.manual_seed(st)
-    theta = torch.sqrt(torch.rand(N)) * 4 * 3.1416 # angles
-    X = theta.cos() * theta
-    Y = theta.sin() * theta
-    target = torch.stack((X, Y), dim=1)
+    theta = torch.sqrt(torch.rand(M)) * 4 * torch.pi # angles
+    X1 = theta.cos() * theta
+    X2 = theta.sin() * theta
+    target = torch.stack((X1, X2), dim=1)
     
-    m = -10 * torch.ones(2)
+    m = torch.zeros(2)
     v = 1/200*torch.eye(2)
     torch.manual_seed(st)
     normal = torch.distributions.MultivariateNormal(m, v)
@@ -162,10 +164,10 @@ def generate_swiss_roll_2d(N, st):
     return target, prior
     
     
-def generate_swiss_roll_3d(N, st):
-    target, _ = datasets.make_swiss_roll(n_samples=N, random_state=st, noise=.5)
+def generate_swiss_roll_3d(N, M, st):
+    target, _ = datasets.make_swiss_roll(n_samples=M, random_state=st, noise=.5)
     target = torch.from_numpy(target)
-    m = torch.zeros(3)
+    m = torch.tensor([0.0, 10.0, -5.0])
     v = 1/200*torch.eye(3)
     torch.manual_seed(st)
     normal = torch.distributions.MultivariateNormal(m, v)
@@ -173,8 +175,8 @@ def generate_swiss_roll_3d(N, st):
     return target, prior
 
 
-def generate_s_curve(N, st):
-    target, _ = datasets.make_s_curve(n_samples=N, random_state=st, noise=.1)
+def generate_s_curve(N, M, st):
+    target, _ = datasets.make_s_curve(n_samples=M, random_state=st, noise=.1)
     target = torch.from_numpy(target)
     m = torch.zeros(3)
     v = 1/200*torch.eye(3)
@@ -183,8 +185,8 @@ def generate_s_curve(N, st):
     prior = normal.sample((N,))
     return target, prior
     
-def generate_annulus(N, st):
-    target, _ = datasets.make_circles(n_samples=N, random_state=st)
+def generate_annulus(N, M, st):
+    target, _ = datasets.make_circles(n_samples=M, random_state=st)
     target = torch.from_numpy(target)
     m = torch.zeros(2)
     v = 1/200*torch.eye(2)
@@ -193,8 +195,8 @@ def generate_annulus(N, st):
     prior = normal.sample((N,))
     return target, prior
 
-def generate_moons(N, st):
-    target, _ = datasets.make_moons(n_samples=N, random_state=st, noise=.1)
+def generate_moons(N, M, st):
+    target, _ = datasets.make_moons(n_samples=M, random_state=st, noise=.1)
     target = torch.from_numpy(target)
     m = 1/2*torch.tensor([2.0, 1.0])
     v = 1/200*torch.eye(2)

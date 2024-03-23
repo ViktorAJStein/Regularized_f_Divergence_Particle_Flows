@@ -19,8 +19,8 @@ my_device = 'cuda' if use_cuda else 'cpu'
 def MMD_reg_f_div_flow(
         alpha=4,  # divergence parameter
         s=.1,  # kernel parameter
-        N=300,  # number of target particles
-        M=900,  # number of prior particles
+        N=300,  # number of prior particles
+        M=900,  # number of target particles
         lambd=.01,  # regularization
         step_size=.001,  # step size for Euler forward discretization
         max_time=50,  # maximal time horizon for simulation
@@ -67,11 +67,10 @@ def MMD_reg_f_div_flow(
 
     target, prior = generate_prior_target(N, M, st, target_name) 
     torch.save(target, folder_name + f'/target.pt')
-
-    X = prior.clone().to(my_device)  # samples of prior distribution
-    Y = target.to(my_device)  # samples of target measure
-    assert M == X.shape[0]
+    X = prior.clone().to(my_device)  # samples of prior distribution, shape = N x d
+    Y = target.to(my_device)  # samples of target measure, shape = M x d
     d = len(Y[0])  # dimension of the ambient space in which the particles live
+    
     func_values = []  # objective value during the algorithm
     KALE_values = torch.zeros(iterations)
     dual_values = []
@@ -85,7 +84,7 @@ def MMD_reg_f_div_flow(
     relative_pseudo_duality_gaps = []
     lower_bds_lambd = []
 
-    kxx = kern(Y[:, None, :], Y[None, :, :], s)
+    kyy = kern(Y[:, None, :], Y[None, :, :], s)
 
     if compute_W2:
         a, b = torch.ones(N) / N, torch.ones(N) / N
@@ -98,14 +97,14 @@ def MMD_reg_f_div_flow(
             else:
                 img_name = f'/Reg_{divergence}{alpha}flow,lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
 
-            Y_cpu = Y.cpu()
+            X_cpu = X.cpu()
             if d == 2:
                 plt.figure()
                 plt.plot(target[:, 1], target[:, 0], '.', c='orange', ms=2)
-                plt.plot(Y_cpu[:, 1], Y_cpu[:, 0], 'b.', ms=2)
+                plt.plot(X_cpu[:, 1], X_cpu[:, 0], 'b.', ms=2)
                 if arrows and n > 0:
                     minus_grad = - h_star_grad.cpu()
-                    plt.quiver(Y_cpu[:, 1], Y_cpu[:, 0], minus_grad[:, 1], minus_grad[:, 0], angles='xy', scale_units='xy', scale=1)
+                    plt.quiver(X_cpu[:, 1], X_cpu[:, 0], minus_grad[:, 1], minus_grad[:, 0], angles='xy', scale_units='xy', scale=1)
                 if target_name == 'circles':
                     plt.ylim([-1.0, 1.0])
                     plt.xlim([-2.0, 0.5])
@@ -124,16 +123,16 @@ def MMD_reg_f_div_flow(
                 plt.close()
 
         # construct kernel matrix
-        kxy = kern(Y[:, None, :], X[None, :, :], s)
-        kyy = kern(X[:, None, :], X[None, :, :], s)
-        upper_row = torch.cat((kxx, kxy), dim=1)
-        lower_row = torch.cat((kxy.t(), kyy), dim=1)
+        kyx = kern(X[None, :, :], Y[:, None, :], s)
+        kxx = kern(X[:, None, :], X[None, :, :], s)
+        upper_row = torch.cat((kyy, kyx), dim=1)
+        lower_row = torch.cat((kyx.t(), kxx), dim=1)
         K = torch.cat((upper_row, lower_row), dim=0)
         K = K.cpu()
         K = K.numpy()
 
         # calculate 1/2 MMD(X, Y)^2 and W2 metric between particles and target
-        MMD[n] = (0.5 * (kxx.sum() / N ** 2 + kyy.sum() / M ** 2 - 2 * kxy.sum() / (N * M))).item()
+        MMD[n] = (0.5 * (kyy.sum() / N ** 2 + kxx.sum() / M ** 2 - 2 * kyx.sum() / (N * M))).item()
         if compute_W2:
             M2 = ot.dist(Y, X, metric='sqeuclidean')
             W2[n] = ot.emd2(a, b, M2)
@@ -152,18 +151,18 @@ def MMD_reg_f_div_flow(
 
         lambdas.append(lambd)
 
-        # we first the simplified primal objectives for the case that div_reces = float('inf')
+        # first the simplified primal objectives for the case that div_reces = float('inf')
         def primal_objective(q):
-            convex_term = np.sum(div(q, alpha))
-            tilde_q = np.concatenate((q, - np.ones(N)))
+            convex_term = 1/M * np.sum(div(q, alpha))
+            tilde_q = np.concatenate((q, - M / N * np.ones(N)))
             quadratic_term = tilde_q.T @ K @ tilde_q
-            return 1/N * convex_term + 1/(2 * lambd * N * N) * quadratic_term
+            return convex_term + 1/(2 * lambd * M * M) * quadratic_term
 
         def primal_jacobian(q):
-            convex_term = div_der(q, alpha)
-            tilde_q = np.concatenate((q, - np.ones(N)))
+            convex_term = 1/M * div_der(q, alpha)
+            tilde_q = np.concatenate((q, - M / N * np.ones(N)))
             linear_term = upper_row.cpu().numpy() @ tilde_q
-            return 1/N * convex_term + 1/(lambd * N * N) * linear_term
+            return convex_term + 1/(lambd * M * M) * linear_term
         '''
         def primal_KALE_objective(q):
             convex_term = np.sum(div(q, 1))
@@ -210,16 +209,16 @@ def MMD_reg_f_div_flow(
                 if div_reces != float('inf'):
                     warm_start_b = - 1/(lambd*M) * q_np
                 else:
-                    warm_start_b = 1/(lambd*N) * np.concatenate((- q_np, np.ones(N)))
+                    warm_start_b = 1/(lambd*N) * np.concatenate((- q_np, M / N * np.ones(N)))
         else: # initial values
             if div_reces != float('inf'):
                 warm_start_q = 1/1000*np.ones(N + M)
                 if dual:
                     warm_start_b = - 1/(lambd * M) * warm_start_q
             else:
-                warm_start_q = 1/1000*np.ones(N)
+                warm_start_q = 1/1000*np.ones(M)
                 if dual:
-                    warm_start_b = 1/(lambd*N) * np.concatenate((- warm_start_q, np.ones(N)))
+                    warm_start_b = 1/(lambd*N) * np.concatenate((- warm_start_q, M / N * np.ones(N)))
 
         optimizer_kwargs = dict(
             m=100,
@@ -241,7 +240,7 @@ def MMD_reg_f_div_flow(
                 primal_objective,
                 warm_start_q,
                 fprime=primal_jacobian,
-                bounds=[(0, None) for _ in range(N)],
+                bounds=[(0, None) for _ in range(M)],
                 **optimizer_kwargs)
         '''
         if compute_KALE:
@@ -298,9 +297,12 @@ def MMD_reg_f_div_flow(
         if div_reces != float('inf'):
             temp = q_torch.view(M+N, 1, 1) * kern_der(X, Z, s)
         else:
-            temp = - kern_der(X, X, s) + q_torch.view(N, 1, 1) * kern_der(X, Y, s)
+            qtilde = torch.cat( (q_torch, - M / N * torch.ones(N, device=my_device)) )
+            temp = qtilde.view(M+N, 1, 1) * kern_der(X, Z, s)
+            # - kern_der(X, X, s) + q_torch.view(M, 1, 1) * kern_der(X, Y, s)
 
         h_star_grad = - 1 / (lambd * M) * torch.sum(temp, dim=0)
+        
         if plot and save_opts and not n % 1e5:
             torch.save(h_star_grad, f'{folder_name}/h_star_grad_at_{n}.pt')
 
@@ -398,4 +400,4 @@ def MMD_reg_f_div_flow(
 
     return func_values, MMD, W2, KALE_values
 
-MMD_reg_f_div_flow(alpha = 5, target_name = 'circles', N = 900, M = 900, lambd=.01, verbose=True, s=.05, annealing=False, kern=W2_1, compute_W2=False, arrows=True)
+MMD_reg_f_div_flow(alpha = 3, target_name = 'moons', M = 900, N = 30, lambd=.01, verbose=True, s=.05, annealing=False, kern=imq, compute_W2=False, arrows=True)

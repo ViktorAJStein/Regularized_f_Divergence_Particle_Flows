@@ -74,8 +74,14 @@ def chi_conj_der(x, alpha):
 def lindsay(x, alpha):
     return (x - 1)**2 / (alpha + (1 - alpha)*x)
     
-def lindsay(x, alpha):
+def lindsay_der(x, alpha):
     return ((1 - x) * (-alpha + (alpha - 1) * x - 1)) / ((alpha - 1) * x - alpha)^2
+    
+def lindsay_conj(x, alpha):
+    return np.choose(x <= 1/(1 - alpha), [np.inf, ( alpha*(alpha - 1)*y - 2*np.sqrt( (alpha - 1)*y+1 ) + 2 )/(alpha - 1)^2 ])
+    
+def lindsay_conj(x, alpha):
+    return np.choose(x < 1/(1 - alpha), [np.inf, 1 / (alpha - 1) * (alpha - 1 / np.sqrt( (alpha - 1) * y + 1 ) ])
     
 def perimeter(x, alpha):
     if alpha == 1:
@@ -93,6 +99,7 @@ def perimeter_der(x, alpha):
     else:
         return np.choose(x > 0, [ np.sgn(alpha) / (1 - alpha) * ( (x**(-1/alpha) + 1)**(alpha - 1) - 2**(alpha - 1) )])
         
+# TODO: implement perimeter_conj, perimeter_conj_der
 
 def reverse_kl(x, alpha):
     tol = 1e-30
@@ -100,6 +107,13 @@ def reverse_kl(x, alpha):
 
 def reverse_kl_der(x, alpha):
     return np.choose(x > 0, [np.inf, (x-1)/x])
+    
+def reverse_kl_conj(x, alpha):
+    return np.choose(x < 1, [np.inf, - np.log(1 - x) ])
+    
+def reverse_kl_conj_der(x, alpha):
+    return np.choose(x < 1, [np.inf, 1/(1 - x) ])     
+    
 
 def jensen_shannon(x, alpha):
     tol = 1e-30
@@ -107,6 +121,12 @@ def jensen_shannon(x, alpha):
 
 def jensen_shannon_der(x, alpha):
     return np.choose(x > 0, [np.inf, 1/x - 1 - np.log((x+1)/2)])
+    
+def jensen_shannon_conj(x, alpha):
+    return np.choose(x < np.log(2), [np.inf, - np.log(2 - np.exp(x))])
+    
+def jensen_shannon_conj_der(x, alpha):
+    return np.choose(x < np.log(2), [np.inf, np.exp(x) / (2 - np.exp(x) ) ])   
 
 def power(x, alpha):
     if alpha != 0:
@@ -119,6 +139,19 @@ def power_der(x, alpha):
         return 1/alpha * tsallis_der(x)
     else:
         return reverse_kl_der(x)
+ 
+def power_conj(x, alpha):
+    if alpha != 0:
+        return 1/alpha * tsallis_conj(x / alpha)
+    else:
+        return reverse_kl_der(x)
+
+def power_conj_der(x, alpha):
+    if alpha != 0:
+        return 1/alpha**2 * tsallis_conj_der(x / alpha)
+    else:
+        return reverse_kl_conj_der(x)
+        
     
 def tv(x, alpha):
     return np.choose(x >= 0, [np.inf, np.abs(x - 1)])
@@ -132,17 +165,34 @@ def tv_conj(y, alpha):
 def tv_conj_der(x, alpha):
     return np.select([np.abs(x) <= 1], [1], default=0)
     
+    
 def matusita(x, alpha):
     return np.abs(1 - x**(alpha))**(1/alpha)
     
 def matusita_der(x, alpha):
     return x**(alpha-1) * (x**alhpa - 1) * np.abs(1 - x**alpha)**(1/alpha - 2)
     
+# TODO: implement matusita_conj, matusita_conj_der
+
+def kafka(x, alpha):
+    return np.abs(1 - x)**(1 / alpha) * (1 + x)**(1 - 1 / alpha)
+    
+def kafka_der(x, alpha):
+    return 1 / alpha * ((x - 1) * (alpha * (x - 1) + 2) * (x + 1)**(-1/alpha) * np.abs(x - 1)**(1/alpha - 2))
+
+# TODO: implement kafka_conj, kafka_conj_der
+    
 def marton(x, alpha):
     return np.max(0, 1 - x)**2
     
 def marton_der(x, alpha):
     return 2*np.max(0, 1 - x)
+    
+def marton_conj(x, alpha):
+    return np.choose(x <= 0, [np.inf, np.choose(x <= -2, [-1, 1/4*x**2 + x])])
+    
+def marton_conj_der(x, alpha)
+    return return np.choose(x <= 0, [np.inf, np.choose(x <= -2, [0, 1/2*x + 1])])
         
 # define recession constants
 def rec_const(div, alpha = None):

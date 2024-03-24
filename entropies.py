@@ -68,20 +68,21 @@ def chi_conj(x, alpha):
     return np.choose(x >= - alpha, [-1, x + (alpha - 1) * (np.abs(x) / alpha)**(alpha/(alpha - 1))])
     
 def chi_conj_der(x, alpha):
-    return np.choose(x >= - alpha, [0, 1 + (alpha)**(1/(1-alpha)) * np.abs(x)**(1/(alpha - 1)) * np.sgn(x) ])
+    return np.choose(x >= - alpha, [0, 1 + (alpha)**(1/(1-alpha)) * np.abs(x)**(1/(alpha - 1)) * np.sign(x) ])
 
 # divergences with non-finite conjugates    
 def lindsay(x, alpha):
+    assert alpha >= 0 and alpha <= 1
     return (x - 1)**2 / (alpha + (1 - alpha)*x)
     
 def lindsay_der(x, alpha):
-    return ((1 - x) * (-alpha + (alpha - 1) * x - 1)) / ((alpha - 1) * x - alpha)^2
+    return ((1 - x) * (-alpha + (alpha - 1) * x - 1)) / ((alpha - 1) * x - alpha)**2
     
 def lindsay_conj(x, alpha):
-    return np.choose(x <= 1/(1 - alpha), [np.inf, ( alpha*(alpha - 1)*y - 2*np.sqrt( (alpha - 1)*y+1 ) + 2 )/(alpha - 1)^2 ])
+    return np.choose(x <= 1/(1 - alpha), [np.inf, ( alpha*(alpha - 1)*x - 2*np.sqrt( (alpha - 1)*x+1 ) + 2 )/(alpha - 1)**2 ])
     
 def lindsay_conj(x, alpha):
-    return np.choose(x < 1/(1 - alpha), [ np.inf, 1 / (alpha - 1) * (alpha - 1 / np.sqrt( (alpha - 1) * y + 1 ))])
+    return np.choose(x < 1/(1 - alpha), [ np.inf, 1 / (alpha - 1) * (alpha - 1 / np.sqrt( (alpha - 1) * x + 1 ))])
     
 def perimeter(x, alpha):
     if alpha == 1:
@@ -89,7 +90,7 @@ def perimeter(x, alpha):
     elif alpha == 0:
         return 1/2*tv(x, alpha)
     else:
-        return np.choose(x >= 0, [np.inf, np.sgn(alpha) / (1 - alpha) * ( (x**(1/alpha) + 1)**alpha - 2**(alpha - 1) * (x + 1) )])
+        return np.choose(x >= 0, [np.inf, np.sign(alpha) / (1 - alpha) * ( (x**(1/alpha) + 1)**alpha - 2**(alpha - 1) * (x + 1) )])
         
 def perimeter_der(x, alpha):
     if alpha == 1:
@@ -97,7 +98,7 @@ def perimeter_der(x, alpha):
     elif alpha == 0:
         return 1/2*tv_der(x, alpha)
     else:
-        return np.choose(x > 0, [ np.sgn(alpha) / (1 - alpha) * ( (x**(-1/alpha) + 1)**(alpha - 1) - 2**(alpha - 1) )])
+        return np.choose(x > 0, [np.inf, np.sign(alpha) / (1 - alpha) * ( (x**(-1/alpha) + 1)**(alpha - 1) - 2**(alpha - 1) )])
         
 # TODO: implement perimeter_conj, perimeter_conj_der
 
@@ -217,7 +218,7 @@ def rec_const(div, alpha = None):
         return 1/(1 - alpha)
         
             
-    if div in ['tv', 'reverse_KL', 'matusita', 'kafka']:
+    if div in ['tv', 'reverse_kl', 'matusita', 'kafka']:
         return 1
     
     if div == 'marton':

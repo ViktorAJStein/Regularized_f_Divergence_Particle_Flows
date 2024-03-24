@@ -81,7 +81,7 @@ def lindsay_conj(x, alpha):
     return np.choose(x <= 1/(1 - alpha), [np.inf, ( alpha*(alpha - 1)*y - 2*np.sqrt( (alpha - 1)*y+1 ) + 2 )/(alpha - 1)^2 ])
     
 def lindsay_conj(x, alpha):
-    return np.choose(x < 1/(1 - alpha), [np.inf, 1 / (alpha - 1) * (alpha - 1 / np.sqrt( (alpha - 1) * y + 1 ) ])
+    return np.choose(x < 1/(1 - alpha), [ np.inf, 1 / (alpha - 1) * (alpha - 1 / np.sqrt( (alpha - 1) * y + 1 ))])
     
 def perimeter(x, alpha):
     if alpha == 1:
@@ -183,16 +183,16 @@ def kafka_der(x, alpha):
 # TODO: implement kafka_conj, kafka_conj_der
     
 def marton(x, alpha):
-    return np.max(0, 1 - x)**2
+    return reLU(1 - x)**2
     
 def marton_der(x, alpha):
-    return 2*np.max(0, 1 - x)
+    return 2*reLU(1 - x)
     
 def marton_conj(x, alpha):
     return np.choose(x <= 0, [np.inf, np.choose(x <= -2, [-1, 1/4*x**2 + x])])
     
-def marton_conj_der(x, alpha)
-    return return np.choose(x <= 0, [np.inf, np.choose(x <= -2, [0, 1/2*x + 1])])
+def marton_conj_der(x, alpha):
+    return np.choose(x <= 0, [np.inf, np.choose(x <= -2, [0, 1/2*x + 1])])
         
 # define recession constants
 def rec_const(div, alpha = None):

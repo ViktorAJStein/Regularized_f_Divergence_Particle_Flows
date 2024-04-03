@@ -21,7 +21,7 @@ If you use this code please cite this preprint, preferably like this:
 ```
 @unpublished{NSSR24,
  author = {Neumayer, Sebastian and Stein, Viktor and Steidl, Gabriele and Rux, Nicolaj},
- title = {Wasserstein Gradient Flows for Moreau Envelopes of $f$-Divergences in Reproducing Kernel Hilbert Spaces},
+ title = {Wasserstein Gradient Flows for {M}oreau Envelopes of $f$-Divergences in Reproducing Kernel {H}ilbert Spaces},
  note = {ArXiv preprint},
  volume = {arXiv:2402.04613},
  year = {2024},

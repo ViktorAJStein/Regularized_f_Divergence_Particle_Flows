@@ -87,7 +87,7 @@ def MMD_reg_f_div_flow(
     kyy = kern(Y[:, None, :], Y[None, :, :], s)
 
     if compute_W2:
-        a, b = torch.ones(N) / N, torch.ones(N) / N
+        a, b = torch.ones(M) / M, torch.ones(N) / N
 
     for n in range(iterations):
         # plot the particles
@@ -255,7 +255,7 @@ def MMD_reg_f_div_flow(
         func_values.append(prim_value)
 
         if dual:
-            b_np, minus_dual_value, _ = sp.optimize.fmin_l_bfgs_b(dual_objective, warm_start_b, fprime = dual_jacobian, **opt_kwargs)     
+            b_np, minus_dual_value, _ = sp.optimize.fmin_l_bfgs_b(dual_objective, warm_start_b, fprime = dual_jacobian, **optimizer_kwargs)     
             dual_values.append(-minus_dual_value)
             if plot and save_opts and not n % 1e5:
                 torch.save(torch.from_numpy(b_np), f'{folder_name}/b_at_{n}.pt')

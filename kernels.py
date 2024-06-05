@@ -136,7 +136,7 @@ def energy(x, y, s):
     eps = 1e-8
     xx0 = ( (x**2).sum(axis=-1) + eps) ** (s / 2)
     yx0 = ( (y**2).sum(axis=-1) + eps) ** (s / 2)
-    xy = ( (x**2).sum(axis=-1) + eps) ** (s / 2)
+    xy = ( ((x-y)**2).sum(axis=-1) + eps) ** (s / 2)
     # pretending eps = 0, this is 1/2 * (|| x ||^s + || y ||^s - || x - y ||^s)
     return 0.5 * (xx0 + yx0 - xy)
     

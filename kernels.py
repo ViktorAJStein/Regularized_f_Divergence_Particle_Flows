@@ -151,8 +151,13 @@ def energy_der(x, y, s):
     pyx = (ryx2 + eps) ** (s / 2 - 1)
  
     return s/2 * ( px0*x + pyx*diffyx)
-    
 
+def energy_mod(x, y, s):
+    return energy(x, y, s) + .5
+
+def energy_mod_der(x, y, s):
+    return energy_der(x, y, s)
+    
 def thin_plate_spline(x, y, s):
     tol=1e-16
     r = ((x - y) ** 2).sum(axis=-1)**(1/2)

@@ -49,7 +49,7 @@ def generate_GMM(N, M, st, d = 2):
     return target, prior
 
 
-def neals_funnel(N, M, st=314):
+def neals_funnel(M, st=314):
     # Generate samples from Neal's funnel
     rs = np.random.RandomState(st)
     y = rs.normal(0, 2, size=M)

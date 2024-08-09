@@ -185,16 +185,6 @@ def sinc_der(x, y, s):
     diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return ( s * torch.cos(s * r) / r**2 - torch.sin(s*r) / r**(3/2) ) * diff
-
-# not positive definite
-def multiquad(x, y, s):
-    r2 = ((x - y) ** 2).sum(axis=-1)
-    return torch.sqrt(1 + s*r2)
-    
-def multiquad_der(x, y, s):
-    diff = y[:,None, :] - x[None,:, :]
-    r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
-    return - s/torch.sqrt(1 + s*r**2) * diff
     
 
 # not differentiable at x = y    

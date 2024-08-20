@@ -110,7 +110,7 @@ def MMD_reg_f_div_flow(
                     plt.xlim([-2.0, 0.5])
                 plt.gca().set_aspect('equal')
                 plt.axis('off')
-                plt.savefig(folder_name + img_name, dpi=300, bbox_inches='tight')
+                plt.savefig(folder_name + img_name, dpi=300, format='pdf', bbox_inches='tight')
                 plt.close()
             if d == 3:
                 fig = plt.figure(figsize=(8, 6))
@@ -119,7 +119,7 @@ def MMD_reg_f_div_flow(
                 ax.view_init(azim=-66, elev=12)
                 ax.scatter(target[:, 0], target[:, 1], target[:, 2], c='orange', s=2)
                 ax.scatter(Y_cpu[:, 0], Y_cpu[:, 1], Y_cpu[:, 2], 'b.', s=2)
-                plt.savefig(folder_name + img_name, dpi=300, bbox_inches='tight')
+                plt.savefig(folder_name + img_name, dpi=300, format='pdf', bbox_inches='tight')
                 plt.close()
 
         # construct kernel matrix
@@ -331,7 +331,7 @@ def MMD_reg_f_div_flow(
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         plt.gca().yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8)))
-        plt.savefig(folder_name + f'/{divergence}_MMD_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(folder_name + f'/{divergence}_MMD_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', format='pdf', dpi=300, bbox_inches='tight')
         plt.close()
 
         # Plot functional values
@@ -348,7 +348,7 @@ def MMD_reg_f_div_flow(
         plt.legend(frameon=False)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        plt.savefig(folder_name + f'/{divergence}_objective_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(folder_name + f'/{divergence}_objective_timeline,{alpha},{lambd},{step_size},{kernel},{s}.pdf', dpi=300, bbox_inches='tight')
         plt.close()
 
         if compute_W2:
@@ -360,7 +360,7 @@ def MMD_reg_f_div_flow(
           plt.ylabel(r'$W_2(\mu, \nu)$')
           ax.spines['top'].set_visible(False)
           ax.spines['right'].set_visible(False)
-          plt.savefig(folder_name + f'/{divergence}_W2_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
+          plt.savefig(folder_name + f'/{divergence}_W2_timeline,{alpha},{lambd},{step_size},{kernel},{s}.pdf', dpi=300, bbox_inches='tight')
           plt.close()
 
         # plot pseudo and relative duality gaps
@@ -377,7 +377,7 @@ def MMD_reg_f_div_flow(
         plt.legend()
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        plt.savefig(folder_name + f'/{divergence}_duality_gaps_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(folder_name + f'/{divergence}_duality_gaps_timeline,{alpha},{lambd},{step_size},{kernel},{s}.pdf', dpi=300, bbox_inches='tight')
         plt.close()
 
 
@@ -391,7 +391,7 @@ def MMD_reg_f_div_flow(
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         plt.legend(frameon=False)
-        plt.savefig(folder_name + f'/{divergence}_lambd_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(folder_name + f'/{divergence}_lambd_timeline,{alpha},{lambd},{step_size},{kernel},{s}.pdf', dpi=300, bbox_inches='tight')
         plt.close()
         
         

@@ -111,7 +111,7 @@ perimeter            | `perimeter`      | $\frac{\text{sign}(\alpha)}{1 - \alpha
 
 Supported targets
 ---------------------------
-* `two_lines`: the two parabolas in the gif at the top
+* `bananas`: the two parabolas in the gif at the top
 * `circles`: three circles
 <p align="center">
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/Circles.gif" width="500" /> 

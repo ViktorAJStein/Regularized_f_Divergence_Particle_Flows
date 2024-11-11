@@ -112,7 +112,7 @@ def emb_const(kern, s):
         prefactor = torch.special.gammaln( (s + 1)/2 ).exp() / torch.sqrt(torch.pi * s) * 1/torch.special.gammaln(s/2).exp()
         return prefactor.item()
 
-# see Ex. 4 in Modeste, Dombry: https://hal.science/hal-03855093
+# see Ex. 4 in Modeste, Dombry: https://www.jmlr.org/papers/v25/22-1338.html
 # These kernels metrizes the W2-metric,
 # but are not differentiable, not translation-invariant and not bounded   
 def W2_1(x, y, s):

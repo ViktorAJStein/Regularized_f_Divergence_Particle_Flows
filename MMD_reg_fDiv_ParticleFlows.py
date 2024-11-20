@@ -19,18 +19,18 @@ my_device = 'cuda' if use_cuda else 'cpu'
 def MMD_reg_f_div_flow(
         alpha=4,  # divergence parameter
         s=.1,  # kernel parameter
-        N=13,  # number of prior particles
-        M=15,  # number of target particles
+        N=1000,  # number of prior particles
+        M=1100,  # number of target particles
         lambd=.01,  # regularization
         step_size=.001,  # step size for Euler forward discretization
         max_time=5,  # maximal time horizon for simulation
         plot=True,  # plot particles along the evolution
         arrows=False,  # plots arrows at particles to show their gradients
         timeline=True,  # plots timeline of functional value along the flow
-        kern=inv_log,  # kernel
+        kern=compact,  # kernel
         dual=False,  # decide whether to solve dual problem as well
         div=tsallis,  # entropy function
-        target_name='moons',  # name of the target measure nu
+        target_name='four_wells',  # name of the target measure nu
         verbose=False,  # decide whether to print warnings
         compute_W2=False,  # compute W2 dist of particles to target along flow
         save_opts=False,  # save minimizers and gradients along the flow
@@ -96,9 +96,10 @@ def MMD_reg_f_div_flow(
     if compute_W2:
         a, b = torch.ones(N) / N, torch.ones(N) / N
 
+    snapshots = 1e2*np.arange(1, 10)
     for n in range(iterations):
         # plot the particles
-        if plot and not n % 1000 or n in 1e2*np.arange(1, 10):
+        if plot and not n % 1000 or n in snapshots:
             if annealing:
                 img_name = f'/Reg_{divergence}{alpha}flow,annealing,tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
             else:
@@ -134,7 +135,6 @@ def MMD_reg_f_div_flow(
 
         # construct kernel matrix
         kyx = kern(X[None, :, :], Y[:, None, :], s)
-        print(f'kxy.shape is {kxy.shape}')
         kxx = kern(X[:, None, :], X[None, :, :], s)
         sum_kxx = kxx.sum()
         upper_row = torch.cat((kyy, kyx), dim=1)
@@ -187,13 +187,10 @@ def MMD_reg_f_div_flow(
 
         def primal_objective_torch(q):
             convex_term = 1/M * torch.sum(div_torch(q, alpha))
-            row_sum_kyx = kyx.sum(dim=1)
-            row_sum_kxy = kyx.sum(dim=0)
-            # tilde_q = torch.concatenate((q, - M / N * torch.ones(N, device=my_device)))
-            # quadratic_term = tilde_q.t() @ K_torch @ tilde_q
-            upper_part = q.t() @ kyy @ q - (M / N) * (q.t() @ row_sum_kyx)
-            lower_part = -(M / N) * (row_sum_kxy.t() @ q) + (M**2 / N**2) * sum_kxx
-            return convex_term + 1/(2 * lambd * M * M) * (upper_part + lower_part)
+            # compute [q, -M/N 1_N]^T K [q, -M/N 1_N]
+            row_sum_kyx = kyx.sum(dim=1)  # tensor of length M
+            quadratic_term = q.t() @ kyy @ q - 2 * (M / N) * (q.t() @ row_sum_kyx) + (M**2 / N**2) * sum_kxx
+            return convex_term + 1/(2 * lambd * M * M) * quadratic_term
 
         def primal_jacobian_torch(q):
             convex_term = 1/M * div_der_torch(q, alpha)

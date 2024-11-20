@@ -165,10 +165,17 @@ def thin_plate_spline_der(x, y, s):
     return - 1/2 * diff * (torch.log(r**2 + tol) + 1)
 
 # not radial    
+def dot(x, y, s):
+    return torch.dot(x,y)
+
+def dot_der(x, y, s):
+    return y
+
+# not radial    
 def squared_dot(x, y, s):
     return 1/2*torch.dot(x,y)**2
 
-def squared_dot(x, y, s):
+def squared_dot_der(x, y, s):
     return y
 
 #not universal    

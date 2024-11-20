@@ -112,7 +112,12 @@ def perimeter_der(x, alpha):
     else:
         return np.choose(x > 0, [np.inf, np.sign(alpha) / (1 - alpha) * ( (x**(-1/alpha) + 1)**(alpha - 1) - 2**(alpha - 1) )])
         
-# TODO: implement perimeter_conj, perimeter_conj_der
+        
+def perimeter_conj(x, alpha):
+    h_alpha = (1 - alpha) / np.sign(alpha) * x + 2**(alpha - 1)
+    return np.choose(x < rec_const(perimeter, alpha), [np.inf,
+    x - np.sign(alpha) / (1 - alpha) * (h_alpha**(alpha/(alpha-1)) - 2**(alpha - 1)) * (h_alpha**(1/(alpha - 1)) - 1)**(-alpha) + np.sign(alpha)/(1 - alpha) * 2**(alpha - 1)])
+# TODO: implement perimeter_conj_der
 
 def reverse_kl(x, alpha):
     tol = 1e-30
@@ -185,7 +190,10 @@ def matusita(x, alpha):
 def matusita_der(x, alpha):
     return x**(alpha-1) * (x**alhpa - 1) * np.abs(1 - x**alpha)**(1/alpha - 2)
     
-# TODO: implement matusita_conj, matusita_conj_der
+def matusita_conj(x, alpha):
+    return np.choose(x < 1, [np.inf, 
+    (x - np.abs(x))**(1/(1 - alpha)) * (1 - np.sgn(x) * np.abs(x)**(alpha/(1 - alpha)))**(-1/alpha)])
+# TODO: implement matusita_conj_der
 
 def kafka(x, alpha):
     return np.abs(1 - x)**(1 / alpha) * (1 + x)**(1 - 1 / alpha)
@@ -193,6 +201,8 @@ def kafka(x, alpha):
 def kafka_der(x, alpha):
     return 1 / alpha * ((x - 1) * (alpha * (x - 1) + 2) * (x + 1)**(-1/alpha) * np.abs(x - 1)**(1/alpha - 2))
 
+# def kafka_conj(x, alpha):
+#     return scipy.special.betainc(...)
 # TODO: implement kafka_conj, kafka_conj_der
     
 def marton(x, alpha):

@@ -112,7 +112,7 @@ def emb_const(kern, s):
         prefactor = torch.special.gammaln( (s + 1)/2 ).exp() / torch.sqrt(torch.pi * s) * 1/torch.special.gammaln(s/2).exp()
         return prefactor.item()
 
-# see Ex. 4 in Modeste, Dombry: https://www.jmlr.org/papers/v25/22-1338.html
+# see Ex. 4 in Modeste, Dombry: https://hal.science/hal-03855093
 # These kernels metrizes the W2-metric,
 # but are not differentiable, not translation-invariant and not bounded   
 def W2_1(x, y, s):
@@ -136,7 +136,7 @@ def energy(x, y, s):
     eps = 1e-8
     xx0 = ( (x**2).sum(axis=-1) + eps) ** (s / 2)
     yx0 = ( (y**2).sum(axis=-1) + eps) ** (s / 2)
-    xy = ( ((x-y)**2).sum(axis=-1) + eps) ** (s / 2)
+    xy = ( (x**2).sum(axis=-1) + eps) ** (s / 2)
     # pretending eps = 0, this is 1/2 * (|| x ||^s + || y ||^s - || x - y ||^s)
     return 0.5 * (xx0 + yx0 - xy)
     
@@ -151,13 +151,8 @@ def energy_der(x, y, s):
     pyx = (ryx2 + eps) ** (s / 2 - 1)
  
     return s/2 * ( px0*x + pyx*diffyx)
-
-def energy_mod(x, y, s):
-    return energy(x, y, s) + .5
-
-def energy_mod_der(x, y, s):
-    return energy_der(x, y, s)
     
+
 def thin_plate_spline(x, y, s):
     tol=1e-16
     r = ((x - y) ** 2).sum(axis=-1)**(1/2)
@@ -185,6 +180,16 @@ def sinc_der(x, y, s):
     diff = y[:,None, :] - x[None,:, :]
     r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
     return ( s * torch.cos(s * r) / r**2 - torch.sin(s*r) / r**(3/2) ) * diff
+
+# not positive definite
+def multiquad(x, y, s):
+    r2 = ((x - y) ** 2).sum(axis=-1)
+    return torch.sqrt(1 + s*r2)
+    
+def multiquad_der(x, y, s):
+    diff = y[:,None, :] - x[None,:, :]
+    r = torch.linalg.vector_norm(diff, dim=2, keepdim=True)
+    return - s/torch.sqrt(1 + s*r**2) * diff
     
 
 # not differentiable at x = y    

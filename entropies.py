@@ -44,7 +44,19 @@ def tsallis_der(x, alpha):
         return tsallis_generator_der(x, alpha)
     else:
         return kl_generator_der(x)
-        
+
+def tsallis_torch(x, alpha):
+    if alpha != 1:
+        return torch.where(x >= 0, ((x+1e-30)**alpha - alpha*x + alpha - 1)/(alpha - 1), float("Inf"))
+    else:
+       return kl_generator(x)
+
+def tsallis_der_torch(x, alpha):
+    if alpha != 1:
+        return torch.where(x >= 0, alpha / (alpha - 1) * ( (x+1e-30)**(alpha - 1) - 1), float("Inf"))
+    else:
+        return torch.log(x)
+                
 def jeffreys(x, alpha):
     return sp.special.xlogy(x - 1, x)
 

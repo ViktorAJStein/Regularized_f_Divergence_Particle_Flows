@@ -153,3 +153,13 @@ Speed
 ---------------------------
 I am still working on improving the speed of this script, the bottleneck being the L-BFGS-B on the CPU.
 Currently, running the simulation for 50000 steps (exact parameters: tsallis-divergence, alpha=3, lambd=1.0, tau=0.001, kernel = IMQ, sigma = 0.5, N = 900, target_name = bananas) takes less than 12 minutes on a CUDA 7.5 GPU with 12 GB of RAM.
+
+Legal Information & Credits
+--------------------------
+Copyright (c) 2024 Viktor Stein
+
+This software was written by Viktor Stein. It was developed at the Institute of Mathematics, TU Berlin. The author acknowledges support by the German Research Foundation within the project VI screen.
+
+This is free software. You can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version. If not stated otherwise, this applies to all files contained in this package and its sub-directories.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.

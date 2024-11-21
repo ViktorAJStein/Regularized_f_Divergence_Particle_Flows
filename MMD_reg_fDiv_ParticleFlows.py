@@ -11,18 +11,12 @@ from kernels import *
 from adds import *
 from entropies import *
 from data_generation import *
+from backtracking import *
 
 torch.set_default_dtype(torch.float64)  # set higher precision
 use_cuda = torch.cuda.is_available()  # shorthand
 my_device = 'cuda' if use_cuda else 'cpu'
-    
-    
-def armijo_search(func, q, eta, p, fx, t, tau, max_iter=20):
-    for j in range(max_iter):
-        if func(q + eta * p) <= fx - eta * t:
-            return eta
-        eta *= tau
-    return eta
+
 
 def MMD_reg_f_div_flow(
         a=3,  # divergence parameter
@@ -39,7 +33,7 @@ def MMD_reg_f_div_flow(
         dual=False,  # decide whether to solve dual problem as well
         div=tsallis,  # entropy function
         target_name='GMM',  # name of the target measure nu
-        verbose=False,  # decide whether to print warnings
+        verbose=True,  # decide whether to print warnings and information
         compute_W2=False,  # compute W2 dist of particles to target along flow
         save_opts=False,  # save minimizers and gradients along the flow
         compute_KALE=False,  # compute MMD-reg. KL-div. from particle to target
@@ -273,13 +267,7 @@ def MMD_reg_f_div_flow(
                     if dual:
                         warm_start_b = - 1/(lambd*N) * 1/1000*np.ones(M)
     
-            optimizer_kwargs = dict(
-                #m=100,
-                #pgtol=1e-5,
-                #iprint=0,
-                #maxiter=120,
-                disp=0,
-            )
+            optimizer_kwargs = dict(disp=0)
             if div_reces != float('inf'):
                 q_np, prim_value, _ = sp.optimize.fmin_l_bfgs_b(
                     primal_objective_fin_rec,
@@ -315,8 +303,16 @@ def MMD_reg_f_div_flow(
                     p = primal_jacobian_torch(q)
                     t, fx = - c*torch.dot(p, q), primal_objective_torch(q)
                     eta = armijo_search(primal_objective_torch, q, eta, p, fx, t, tau)
+                q_prev = q
                 q = q * torch.exp(- eta * primal_jacobian_torch(q))
                 q /= 1/M * torch.sum(q)
+                res = torch.norm(primal_jacobian_torch(q)).item() / torch.norm(primal_jacobian_torch(torch.ones(M, device=my_device))).item()
+                iter_diff = torch.norm(q - q_prev).item()
+                if res < 1e-6 or iter_diff < 1e-6:  # Termination condition
+                    if verbose: print(f"Converged in {k + 1} iterations.")
+                    break
+                else:
+                    if verbose: print("Maximum iterations reached without convergence.")
                 # p = TODO
                 q_end += q
                 # gradient restart of speed restart

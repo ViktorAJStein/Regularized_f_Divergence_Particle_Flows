@@ -17,17 +17,17 @@ my_device = 'cuda' if use_cuda else 'cpu'
 
 
 def MMD_reg_f_div_flow(
-        alpha=4,  # divergence parameter
+        a=4,  # divergence parameter
         s=.1,  # kernel parameter
-        N=1000,  # number of prior particles
-        M=1100,  # number of target particles
+        N=300,  # number of prior particles
+        M=400,  # number of target particles
         lambd=.01,  # regularization
         step_size=.001,  # step size for Euler forward discretization
         max_time=5,  # maximal time horizon for simulation
         plot=True,  # plot particles along the evolution
         arrows=False,  # plots arrows at particles to show their gradients
         timeline=True,  # plots timeline of functional value along the flow
-        kern=compact,  # kernel
+        kern=inv_log,  # kernel
         dual=False,  # decide whether to solve dual problem as well
         div=tsallis,  # entropy function
         target_name='four_wells',  # name of the target measure nu
@@ -36,10 +36,9 @@ def MMD_reg_f_div_flow(
         save_opts=False,  # save minimizers and gradients along the flow
         compute_KALE=False,  # compute MMD-reg. KL-div. from particle to target
         st=42,  # random state for reproducibility
-        annealing=False,
-        annealing_factor=0,
-        stupid_normalization=False,
-        tight=True
+        annealing=False,  # decide wether to use the annealing heuristic
+        annealing_factor=0,  # factor by which to divide lambda
+        tight=False  # decide whether to use the tight variational formulation
         ):
     '''
     @return:    func_value:    torch tensor of length iterations,
@@ -48,8 +47,8 @@ def MMD_reg_f_div_flow(
                                1/2 MMD^2 between particles along the flow
                 W2:            torch tensor of length iterations,
                                W2 metric between particles along the flow
-                KALE_values:   torch tensor of length iterations,
-                               regularized KL divergence between particles and target along the flow
+                # KALE_values:   torch tensor of length iterations,
+                #                regularized KL divergence between particles and target along the flow
     '''
 
     iterations = int(max_time / step_size) + 1  # max number of iterations
@@ -58,14 +57,14 @@ def MMD_reg_f_div_flow(
     kernel = kern.__name__
     B = emb_const(kern, s)  # embedding constant H_K \hookrightarrow C_0
     divergence = div.__name__
-    div_reces = rec_const(divergence, alpha)  # recession constant of entropy function
+    div_reces = rec_const(divergence, a)  # recession constant of entropy function
     div_conj = globals().get(div.__name__ + '_conj')  # convex conjugate of the entropy function
     div_conj_der = globals().get(div.__name__ + '_conj_der')  # derivative of div_conj
     div_der = globals().get(div.__name__ + '_der')  # derivative of div
     div_torch = globals().get(div.__name__ + '_torch')  # derivative of div
     div_der_torch = globals().get(div.__name__ + '_der_torch')  # derivative of div
     
-    folder_name = f"{divergence},alpha={alpha},lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name},state={st}_{annealing}={annealing_factor},tight={tight}"
+    folder_name = f"{divergence},a={a},lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name},state={st}_{annealing}={annealing_factor},tight={tight}"
     make_folder(folder_name)
 
     if verbose and B:
@@ -78,7 +77,7 @@ def MMD_reg_f_div_flow(
     d = len(Y[0])  # dimension of the ambient space in which the particles live
 
     func_values = np.zeros(iterations)  # objective value during the algorithm
-    KALE_values = torch.zeros(iterations)
+    # KALE_values = torch.zeros(iterations)
     dual_values = np.zeros(iterations)
     lambdas = np.zeros(iterations)  # regularization parametre during the algorithm (relevant for annealing) 
     pseudo_dual_values = np.zeros(iterations)
@@ -101,9 +100,9 @@ def MMD_reg_f_div_flow(
         # plot the particles
         if plot and not n % 1000 or n in snapshots:
             if annealing:
-                img_name = f'/Reg_{divergence}{alpha}flow,annealing,tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
+                img_name = f'/Reg_{divergence}{a}flow,annealing,tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
             else:
-                img_name = f'/Reg_{divergence}{alpha}flow,lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
+                img_name = f'/Reg_{divergence}{a}flow,lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
 
             X_cpu = X.cpu()
             if d == 2:
@@ -132,19 +131,24 @@ def MMD_reg_f_div_flow(
                 ax.scatter(X_cpu[:, 0], X_cpu[:, 1], X_cpu[:, 2], 'b.', s=2)
                 plt.savefig(folder_name + img_name, dpi=300, bbox_inches='tight')
                 plt.close()
+        
 
         # construct kernel matrix
         kyx = kern(X[None, :, :], Y[:, None, :], s)
         kxx = kern(X[:, None, :], X[None, :, :], s)
-        sum_kxx = kxx.sum()
-        upper_row = torch.cat((kyy, kyx), dim=1)
-        lower_row = torch.cat((kyx.t(), kxx), dim=1)
+        if tight:
+            row_sum_kxy_torch = kyx.sum(dim=1) # tensor of shape (M, )
+            sum_kxx = kxx.sum()
         
         if not tight:
-            # this should be avoided, since for large M, N, this large matrix does not fit into memory
-            K_torch = torch.cat((upper_row, lower_row), dim=0)
             kyx_cpu = kyx.cpu().numpy()
+            row_sum_kyx_cpu = np.sum(kyx_cpu, axis=1)  # np.array of shape (M, )
             kxx_cpu = kxx.cpu().numpy()
+            sum_kxx_cpu = kxx_cpu.sum()
+            # this should be avoided, since for large M, N, this large matrix does not fit into memory
+            upper_row = torch.cat((kyy, kyx), dim=1)
+            lower_row = torch.cat((kyx.t(), kxx), dim=1)
+            K_torch = torch.cat((upper_row, lower_row), dim=0)
             upper_row_cpu = upper_row.cpu().numpy()
             K = K_torch.cpu()
             K = K.numpy()
@@ -174,28 +178,31 @@ def MMD_reg_f_div_flow(
         # first: reduced objectives for the case div_reces = float('inf')
         # TODO: reduce this objective
         def primal_objective(q):
-            convex_term = 1/M * np.sum(div(q, alpha))
-            tilde_q = np.concatenate((q, - M / N * np.ones(N)))
-            quadratic_term = tilde_q.T @ K @ tilde_q
+            convex_term = 1/M * np.sum(div(q, a))
+            # tilde_q = np.concatenate((q, - M / N * np.ones(N)))
+            # quadratic_term = tilde_q.T @ K @ tilde_q
+            
+            quadratic_term = q.T @ kyy_cpu @ q - 2 * (M / N) * (q.T @ row_sum_kyx_cpu) + (M**2 / N**2) * sum_kxx_cpu
             return convex_term + 1/(2 * lambd * M * M) * quadratic_term
 
         def primal_jacobian(q):
-            convex_term = 1/M * div_der(q, alpha)
-            tilde_q = np.concatenate((q, - M / N * np.ones(N)))
-            linear_term = upper_row_cpu @ tilde_q
+            convex_term = 1/M * div_der(q, a)
+            # tilde_q = np.concatenate((q, - M / N * np.ones(N)))
+            # linear_term = upper_row_cpu @ tilde_q
+            linear_term = kyy_cpu @ q - M / N * row_sum_kyx_cpu
             return convex_term + 1/(lambd * M * M) * linear_term
 
         def primal_objective_torch(q):
-            convex_term = 1/M * torch.sum(div_torch(q, alpha))
+            convex_term = 1/M * torch.sum(div_torch(q, a))
             # compute [q, -M/N 1_N]^T K [q, -M/N 1_N]
-            row_sum_kyx = kyx.sum(dim=1)  # tensor of length M
-            quadratic_term = q.t() @ kyy @ q - 2 * (M / N) * (q.t() @ row_sum_kyx) + (M**2 / N**2) * sum_kxx
+            quadratic_term = q.t() @ kyy @ q - 2 * (M / N) * (q.t() @ row_sum_kxy_torch) + (M**2 / N**2) * sum_kxx
             return convex_term + 1/(2 * lambd * M * M) * quadratic_term
 
         def primal_jacobian_torch(q):
-            convex_term = 1/M * div_der_torch(q, alpha)
-            tilde_q = torch.concatenate((q, - M / N * torch.ones(N, device=my_device)))
-            linear_term = upper_row @ tilde_q
+            convex_term = 1/M * div_der_torch(q, a)
+            # tilde_q = torch.concatenate((q, - M / N * torch.ones(N, device=my_device)))
+            # linear_term = upper_row @ tilde_q
+            linear_term = kyy @ q - M / N * row_sum_kyx_torch
             return convex_term + 1/(lambd * M * M) * linear_term
 
 
@@ -213,24 +220,25 @@ def MMD_reg_f_div_flow(
             return 1/N * convex_term + 1/(lambd * N * N) * linear_term
         '''
         def dual_objective_reduced(b):  # b.shape = (M, )
-            convex_term = - 1 / M * div_conj(kyy_cpu @ b + 1 / (lambd * N) * kyx_cpu @ np.ones(N), alpha).sum()
+            convex_term = - 1 / M * div_conj(kyy_cpu @ b 
+            + 1 / (lambd * N) * kyx_cpu @ np.ones(N), a).sum()
             quadratic_term = - lambd / 2 * b.T @ kyy_cpu @ b
             return convex_term + quadratic_term
 
         def dual_jacobian_reduced(b):
-            convex_term = -1 / M * kyy_cpu @ div_conj_der(kyy_cpu @ b + 1 / (lambd * N) * kyx_cpu @ np.ones(N), alpha)
+            convex_term = -1 / M * kyy_cpu @ div_conj_der(kyy_cpu @ b + 1 / (lambd * N) * kyx_cpu @ np.ones(N), a)
             linear_term = - lambd * kyy_cpu @ b
             return convex_term + linear_term
 
         # now the primal objective for div_reces < float('inf')
         def primal_objective_fin_rec(q):
-            convex_term = 1/M * np.sum(div(q[:M], alpha))
+            convex_term = 1/M * np.sum(div(q[:M], a))
             linear_term = div_reces * (1 + 1/M * np.sum(q[M:]))
             quadratic_term = 1/(2 * lambd * M * M) * q.T @ K @ q
             return convex_term + linear_term + quadratic_term
 
         def primal_jacobian_fin_rec(q):
-            convex_term = div_der(q[:M], alpha)
+            convex_term = div_der(q[:M], a)
             constnt_term = div_reces * np.ones(N)
             joint_term = 1/M * np.concatenate((convex_term, constnt_term))
             linear_term = K @ q
@@ -239,13 +247,13 @@ def MMD_reg_f_div_flow(
         # this is minus the value of the objective
         def dual_objective(b):
             h = K @ b
-            c1 = np.concatenate((div_conj(h[:M], alpha), - h[M:]))
+            c1 = np.concatenate((div_conj(h[:M], a), - h[M:]))
             c3 = b.T @ h
             return 1/N * np.sum(c1) + lambd/2 * c3
 
         def dual_jacobian(b):
             h = K @ b
-            x = np.concatenate((div_conj_der(h[:M], alpha), - np.ones(N)), axis=0)
+            x = np.concatenate((div_conj_der(h[:M], a), - np.ones(N)), axis=0)
             return 1/N * K @ x + lambd * h
 
         if not tight:
@@ -287,22 +295,26 @@ def MMD_reg_f_div_flow(
                     fprime=primal_jacobian,
                     bounds=[(0, None) for _ in range(M)],
                     **optimizer_kwargs)
-                if stupid_normalization:
-                    q_np /= np.sum(q_np)
         else:
-            max_stepsize_mirror = 80
-            # mirror descent on M * unit simplex in R^M
-            # aka Exponential Gradient Descent (?)
+            number_of_steps_mirror = 80
+            # accelerated mirror descent on M * unit simplex in R^M with restart
             q = torch.ones(M, device=my_device)  # initial vector
             q_end = q
             eta = .01
             averaging = False
-            for k in range(max_stepsize_mirror):
+            r = 3
+            for k in range(number_of_steps_mirror):
+                # p = r / (r + l) * q + (1 - r / (r + l)) * p
                 q = q * torch.exp(- eta * primal_jacobian_torch(q))
                 q /= 1/M * torch.sum(q)
+                # p = TODO
                 q_end += q
+                # gradient restart of speed restart
+                # if torch.dot(q_new - q_old, primal_jacobian_torch(q_old)) > 0 or torch.linalg.norm(q_new - q_old) < torch.linalg.norm(q_old - q_oldold):
+                #     tilde_z = x
+                #     l = 0  # reset momentum to 0
             if averaging:
-                q_end /= max_stepsize_mirror
+                q_end /= number_of_steps_mirror
                 q_torch, prim_value = q, primal_objective_torch(q)
             else:
                 q_torch, prim_value = q, primal_objective_torch(q)
@@ -384,15 +396,15 @@ def MMD_reg_f_div_flow(
         X -= step_size * h_star_grad
 
     suffix = f',{lambd},{step_size},{N},{M},{kernel},{s},{max_time},{target_name}'
-    torch.save(func_values, folder_name + f'/Reg_{divergence}-{alpha}_Div_value_timeline{suffix}.pt')
-    torch.save(MMD, folder_name + f'/Reg_{divergence}-{alpha}_Div_MMD_timeline{suffix}.pt')
+    torch.save(func_values, folder_name + f'/Reg_{divergence}-{a}_Div_value_timeline{suffix}.pt')
+    torch.save(MMD, folder_name + f'/Reg_{divergence}-{a}_Div_MMD_timeline{suffix}.pt')
     if compute_W2:
-        torch.save(W2, folder_name + f'/Reg_{divergence}-{alpha}_DivW2_timeline{suffix}.pt')
+        torch.save(W2, folder_name + f'/Reg_{divergence}-{a}_DivW2_timeline{suffix}.pt')
     if dual:
-        torch.save(duality_gaps, folder_name + f'/Reg_{divergence}-{alpha}_Divergence_duality_gaps_timeline{suffix}.pt')
-        torch.save(relative_duality_gaps, folder_name + f'/Reg_{divergence}-{alpha}_Divergence_rel_duality_gaps_timeline{suffix}.pt')
-    torch.save(pseudo_duality_gaps, folder_name + f'/Reg_{divergence}-{alpha}_Divergence_pseudo_duality_gaps_timeline{suffix}.pt')
-    torch.save(relative_pseudo_duality_gaps, folder_name + f'/Reg_{divergence}-{alpha}_Divergence_rel_pseudo_duality_gaps_timeline{suffix}.pt')       
+        torch.save(duality_gaps, folder_name + f'/Reg_{divergence}-{a}_Divergence_duality_gaps_timeline{suffix}.pt')
+        torch.save(relative_duality_gaps, folder_name + f'/Reg_{divergence}-{a}_Divergence_rel_duality_gaps_timeline{suffix}.pt')
+    torch.save(pseudo_duality_gaps, folder_name + f'/Reg_{divergence}-{a}_Divergence_pseudo_duality_gaps_timeline{suffix}.pt')
+    torch.save(relative_pseudo_duality_gaps, folder_name + f'/Reg_{divergence}-{a}_Divergence_rel_pseudo_duality_gaps_timeline{suffix}.pt')       
     if timeline:
         # plot MMD, objective value, and W2 along the flow
         fig, ax = plt.subplots()
@@ -403,12 +415,12 @@ def MMD_reg_f_div_flow(
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         plt.gca().yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8)))
-        plt.savefig(folder_name + f'/{divergence}_MMD_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(folder_name + f'/{divergence}_MMD_timeline,{a},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
         plt.close()
 
         # Plot functional values
         fig, ax = plt.subplots()
-        if not alpha == '':
+        if not a == '':
             plt.plot(dual_values, label='dual objective')
         else:
             plt.plot(pseudo_dual_values, label='pseudo dual values')
@@ -416,11 +428,11 @@ def MMD_reg_f_div_flow(
         plt.yscale('log')
         plt.gca().yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8)))
         plt.xlabel('iterations')
-        plt.ylabel(r'$D_{f_{\alpha}}^{{' + str(lambd) + r'}}(\mu \mid \nu)$')
+        plt.ylabel(r'$D_{f_{\a}}^{{' + str(lambd) + r'}}(\mu \mid \nu)$')
         plt.legend(frameon=False)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        plt.savefig(folder_name + f'/{divergence}_objective_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(folder_name + f'/{divergence}_objective_timeline,{a},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
         plt.close()
 
         if compute_W2:
@@ -432,13 +444,13 @@ def MMD_reg_f_div_flow(
           plt.ylabel(r'$W_2(\mu, \nu)$')
           ax.spines['top'].set_visible(False)
           ax.spines['right'].set_visible(False)
-          plt.savefig(folder_name + f'/{divergence}_W2_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
+          plt.savefig(folder_name + f'/{divergence}_W2_timeline,{a},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
           plt.close()
 
         # plot pseudo and relative duality gaps
         if not tight:
             fig, ax = plt.subplots()
-            if not alpha == '':
+            if not a == '':
                 plt.plot(duality_gaps, label='duality gap')
                 plt.plot(relative_duality_gaps, '-.', label='relative duality gap')
             plt.plot(pseudo_duality_gaps, ':', label='pseudo duality gap')
@@ -450,7 +462,7 @@ def MMD_reg_f_div_flow(
             plt.legend()
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
-            plt.savefig(folder_name + f'/{divergence}_duality_gaps_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
+            plt.savefig(folder_name + f'/{divergence}_duality_gaps_timeline,{a},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
             plt.close()
 
         # lower bd on lambda
@@ -463,11 +475,11 @@ def MMD_reg_f_div_flow(
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         plt.legend(frameon=False)
-        plt.savefig(folder_name + f'/{divergence}_lambd_timeline,{alpha},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(folder_name + f'/{divergence}_lambd_timeline,{a},{lambd},{step_size},{kernel},{s}.png', dpi=300, bbox_inches='tight')
         plt.close()
 
         func_values = torch.tensor(func_values)
 
-    return func_values, MMD, W2, KALE_values
+    return func_values, MMD, W2 #, KALE_values
 
 MMD_reg_f_div_flow()

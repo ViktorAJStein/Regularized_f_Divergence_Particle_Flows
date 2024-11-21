@@ -149,11 +149,6 @@ and the three-dimensional data sets `swiss_role_3d` and `s_curve`.
   <img src="https://github.com/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/blob/main/images/swiss_roll_3d.gif" width="300" /> 
 </p>
 
-Speed
----------------------------
-I am still working on improving the speed of this script, the bottleneck being the L-BFGS-B on the CPU.
-Currently, running the simulation for 50000 steps (exact parameters: tsallis-divergence, alpha=3, lambd=1.0, tau=0.001, kernel = IMQ, sigma = 0.5, N = 900, target_name = bananas) takes less than 12 minutes on a CUDA 7.5 GPU with 12 GB of RAM.
-
 Legal Information & Credits
 --------------------------
 Copyright (c) 2024 Viktor Stein

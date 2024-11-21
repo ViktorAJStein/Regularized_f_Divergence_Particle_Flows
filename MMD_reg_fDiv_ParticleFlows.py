@@ -30,7 +30,7 @@ def MMD_reg_f_div_flow(
         kern=inv_log,  # kernel
         dual=False,  # decide whether to solve dual problem as well
         div=tsallis,  # entropy function
-        target_name='four_wells',  # name of the target measure nu
+        target_name='GMM',  # name of the target measure nu
         verbose=False,  # decide whether to print warnings
         compute_W2=False,  # compute W2 dist of particles to target along flow
         save_opts=False,  # save minimizers and gradients along the flow
@@ -38,7 +38,7 @@ def MMD_reg_f_div_flow(
         st=42,  # random state for reproducibility
         annealing=False,  # decide wether to use the annealing heuristic
         annealing_factor=0,  # factor by which to divide lambda
-        tight=False  # decide whether to use the tight variational formulation
+        tight=True  # decide whether to use the tight variational formulation
         ):
     '''
     @return:    func_value:    torch tensor of length iterations,
@@ -137,7 +137,7 @@ def MMD_reg_f_div_flow(
         kyx = kern(X[None, :, :], Y[:, None, :], s)
         kxx = kern(X[:, None, :], X[None, :, :], s)
         if tight:
-            row_sum_kxy_torch = kyx.sum(dim=1) # tensor of shape (M, )
+            row_sum_kyx_torch = kyx.sum(dim=1) # tensor of shape (M, )
             sum_kxx = kxx.sum()
         
         if not tight:
@@ -179,29 +179,21 @@ def MMD_reg_f_div_flow(
         # TODO: reduce this objective
         def primal_objective(q):
             convex_term = 1/M * np.sum(div(q, a))
-            # tilde_q = np.concatenate((q, - M / N * np.ones(N)))
-            # quadratic_term = tilde_q.T @ K @ tilde_q
-            
             quadratic_term = q.T @ kyy_cpu @ q - 2 * (M / N) * (q.T @ row_sum_kyx_cpu) + (M**2 / N**2) * sum_kxx_cpu
             return convex_term + 1/(2 * lambd * M * M) * quadratic_term
 
         def primal_jacobian(q):
             convex_term = 1/M * div_der(q, a)
-            # tilde_q = np.concatenate((q, - M / N * np.ones(N)))
-            # linear_term = upper_row_cpu @ tilde_q
             linear_term = kyy_cpu @ q - M / N * row_sum_kyx_cpu
             return convex_term + 1/(lambd * M * M) * linear_term
 
         def primal_objective_torch(q):
             convex_term = 1/M * torch.sum(div_torch(q, a))
-            # compute [q, -M/N 1_N]^T K [q, -M/N 1_N]
-            quadratic_term = q.t() @ kyy @ q - 2 * (M / N) * (q.t() @ row_sum_kxy_torch) + (M**2 / N**2) * sum_kxx
+            quadratic_term = q.t() @ kyy @ q - 2 * (M / N) * (q.t() @ row_sum_kyx_torch)
             return convex_term + 1/(2 * lambd * M * M) * quadratic_term
 
         def primal_jacobian_torch(q):
             convex_term = 1/M * div_der_torch(q, a)
-            # tilde_q = torch.concatenate((q, - M / N * torch.ones(N, device=my_device)))
-            # linear_term = upper_row @ tilde_q
             linear_term = kyy @ q - M / N * row_sum_kyx_torch
             return convex_term + 1/(lambd * M * M) * linear_term
 
@@ -315,9 +307,9 @@ def MMD_reg_f_div_flow(
                 #     l = 0  # reset momentum to 0
             if averaging:
                 q_end /= number_of_steps_mirror
-                q_torch, prim_value = q, primal_objective_torch(q)
+                q_torch, prim_value = q, primal_objective_torch(q) + (M**2 / N**2) * sum_kxx
             else:
-                q_torch, prim_value = q, primal_objective_torch(q)
+                q_torch, prim_value = q, primal_objective_torch(q) + (M**2 / N**2) * sum_kxx
                       
         '''
         if compute_KALE:
@@ -428,7 +420,7 @@ def MMD_reg_f_div_flow(
         plt.yscale('log')
         plt.gca().yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8)))
         plt.xlabel('iterations')
-        plt.ylabel(r'$D_{f_{\a}}^{{' + str(lambd) + r'}}(\mu \mid \nu)$')
+        plt.ylabel(r'$D_{f_{\alpha}}^{{' + str(lambd) + r'}}(\mu \mid \nu)$')
         plt.legend(frameon=False)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)

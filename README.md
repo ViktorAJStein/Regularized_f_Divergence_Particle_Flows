@@ -1,6 +1,5 @@
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
-![Github All Releases](https://img.shields.io/github/downloads/ViktorAJStein/Regularized_f_Divergence_Particle_Flows/total.svg)
 
 MMD-regularized $f$-divergence Wasserstein-2 particle flows
 =========================

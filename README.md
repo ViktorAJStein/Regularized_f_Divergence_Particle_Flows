@@ -82,7 +82,7 @@ inverse log              | `inv_log`  | $\left(s + \ln(1 + \| x - y \|^2)\right)
 inverse quadric          | `inv_quad` | $(1 + s \| x - y \|^2)^{-1}$
 student t                | `student`  | $\frac{\Gamma\left(\frac{s + 1}{2}\right)}{\sqrt{s \pi} \Gamma\left(\frac{s}{2}\right)} \left(1 + \frac{1}{s} \| x - y \|^2\right)^{- \frac{s + 1}{2}}$
 
-We also implemented the following two "$W_2$-metrizing kernels", which metrize the Wasserstein-2 distance on $\mathcal P_2(\mathbb R^d)$, detailed in Example 4 of [Modeste, Dombry: "Characterization of translation invariant MMD on R d and connections with Wasserstein distances"](https://hal.science/hal-03855093).
+I also implemented the following two "$W_2$-metrizing kernels", which metrize the Wasserstein-2 distance on $\mathcal P_2(\mathbb R^d)$, detailed in Example 4 of [Modeste, Dombry: "Characterization of translation invariant MMD on R d and connections with Wasserstein distances"](https://hal.science/hal-03855093).
 However, they are unbounded, not translation invariant (and one is not differentiable on the diagonal), so they do not fulfill our assumptions.
 Kernel                   | Name       | Expression $K(x, y) =$
 -------------------------| -----------| ----------------------------------------------

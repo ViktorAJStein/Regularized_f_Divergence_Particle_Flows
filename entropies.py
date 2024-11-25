@@ -13,6 +13,25 @@ def lambertw_ext(x):
 def reLU(x):
     return 1/2*(x+np.abs(x))
 
+    
+    
+class entr_func:
+    def __init__(self, fnc, der, hess, conj, conj_der, prox, reces):
+        self.name = fnc.__name__
+        self.fnc = fnc
+        self.der = der
+        self.hess = hess
+        self.conj = conj
+        self.conj_der = conj_der
+        self.prox = prox
+        self.reces = reces
+        
+
+def prox_newton(entr, eta, x, threshold=1e-7):
+    y = 100
+    while torch.abs(entr.der(y) + 1/eta * (y - x)) > threshold:
+        y -= (eta*entr.der(y) + y - x)/(eta*entr.hess(y) + 1)
+
 
 def tsallis_generator(x, a):
     return np.choose(x >= 0, [np.inf, ((x+1e-30)**a - a*x + a - 1)/(a - 1)])
@@ -35,11 +54,13 @@ def tsallis_conj_der(x, a):
         return np.exp(x)
 
 def kl_generator(x):
-    # return torch.xlogy(x, x) - x + 1
-    return sp.special.xlogy(x, x) - x + 1
+    if isinstance(x, torch.Tensor):
+        return torch.xlogy(x, x) - x + 1
+    elif isinstance(x, np.ndarray):
+        return sp.special.xlogy(x, x) - x + 1
 
 def kl_generator_der(x):
-    return np.log(x)
+    return np.log(x+1e-30)
 
 
 def tsallis(x, a):
@@ -53,6 +74,12 @@ def tsallis_der(x, a):
         return tsallis_generator_der(x, a)
     else:
         return kl_generator_der(x)
+        
+def tsallis_hess(x, a):
+    if a != 1:
+        return 1/x
+    else:
+        return a * x**(a - 2)
 
 def tsallis_torch(x, a):
     if a != 1:
@@ -73,12 +100,23 @@ def tsallis_prox(x, a, eta):
         pass  # TODO!
     else:
         return eta * lambertw_ext(1/eta * np.exp(x/eta))
+
+def tsallis_rec(a):
+    if a >= 1:
+        return float('inf')
+    elif 0 < a < 1:
+        a / (1 - a)
+        
+tsallis = entr_func(tsallis, tsallis_der, tsallis_hess, tsallis_conj, tsallis_conj_der, tsallis_prox, tsallis_rec)
                 
 def jeffreys(x, a):
     return sp.special.xlogy(x - 1, x)
 
 def jeffreys_der(x, a):
     return (x - 1)/x + np.log(x)
+    
+def jeffreys_hess(x, a):
+    return (x - 2) / (x - 1)**2
     
 def jeffreys_conj(x, a):
     lambert = np.real(sp.special.lambertw(np.e**(1 - x)))
@@ -87,6 +125,13 @@ def jeffreys_conj(x, a):
 def jeffreys_conj_der(x, a):
     return 1 / np.real(sp.special.lambertw(np.e**(1 - x)))
 
+def jeffreys_prox(x, a, eta):
+    f = lambda y : y - 1 + torch.xlogy(y, y) + 1 / eta * (y^2 - x * y)
+    return newton(f)
+    
+jeffreys = entr_func(jeffreys, jeffreys_der, jeffreys_hess, jeffreys_conj, jeffreys_conj_der, jeffreys_prox, float('inf'))
+
+    
 def chi(x, a):
     return np.choose(x >= 0, [np.inf, np.abs(x - 1) ** a])
 
@@ -107,12 +152,22 @@ def lindsay(x, a):
 def lindsay_der(x, a):
     return ((1 - x) * (-a + (a - 1) * x - 1)) / ((a - 1) * x - a)**2
     
+def lindsay_hess(x, a):
+    return 2 / (a * (1 - x) + x)**3
+    
 def lindsay_conj(x, a):
     return np.choose(x <= 1/(1 - a), [np.inf, ( a*(a - 1)*x - 2*np.sqrt( (a - 1)*x+1 ) + 2 )/(a - 1)**2 ])
     
-def lindsay_conj(x, a):
+def lindsay_conj_der(x, a):
     return np.choose(x < 1/(1 - a), [ np.inf, 1 / (a - 1) * (a - 1 / np.sqrt( (a - 1) * x + 1 ))])
     
+def lindsay_prox(x, a, eta):
+    F = lambda x:  ((1 - x) * (x * (a - 1) - a - 1))/ ((x + a - x * a)**2) + 1/eta * (x - y)
+    return newton(F)
+    
+lindsay = entr_func(lindsay, lindsay_der, lindsay_hess, lindsay_conj, lindsay_conj_der, lindsay_prox, lambda a: 1/(1 - a))
+
+
 def perimeter(x, a):
     if a == 1:
         return jensen_shannon(x, a)
@@ -143,12 +198,19 @@ def reverse_kl(x, a):
 def reverse_kl_der(x, a):
     return np.choose(x > 0, [np.inf, (x-1)/x])
     
+def reverse_kl_hess(x, a):
+    return 1 / x**2
+    
 def reverse_kl_conj(x, a):
     return np.choose(x < 1, [np.inf, - np.log(1 - x) ])
     
 def reverse_kl_conj_der(x, a):
-    return np.choose(x < 1, [np.inf, 1/(1 - x) ])     
+    return np.choose(x < 1, [np.inf, 1/(1 - x) ])  
     
+def reverse_kl_prox(x, a, eta):
+    return 1/2 * (x - eta + torch.sqrt( (x - eta)**2 + 4 * eta))   
+    
+reverse_kl = entr_func(reverse_kl, reverse_kl_der, reverse_kl_hess, reverse_kl_conj, reverse_kl_conj_der, reverse_kl_prox, 1)
 
 def jensen_shannon(x, a):
     tol = 1e-30
@@ -157,11 +219,20 @@ def jensen_shannon(x, a):
 def jensen_shannon_der(x, a):
     return np.choose(x > 0, [np.inf, 1/x - 1 - np.log((x+1)/2)])
     
+def jensen_shannon_hess(x, a):
+    return -1 / x**2 - 1/(1 + x)
+    
 def jensen_shannon_conj(x, a):
     return np.choose(x < np.log(2), [np.inf, - np.log(2 - np.exp(x))])
     
 def jensen_shannon_conj_der(x, a):
-    return np.choose(x < np.log(2), [np.inf, np.exp(x) / (2 - np.exp(x) ) ])   
+    return np.choose(x < np.log(2), [np.inf, np.exp(x) / (2 - np.exp(x) ) ]) 
+    
+def jensen_shannon_prox(x, a, eta):
+     F = lambda y: torch.log(2*y) - torch.log(1 + y) + (y - x) / eta 
+     return newton(F)
+     
+jensen_shannon = entr_func(jensen_shannon, jensen_shannon_der, jensen_shannon_hess, jensen_shannon_conj, jensen_shannon_conj_der, jensen_shannon_prox, np.log(2))
 
 def power(x, a):
     if a != 0:
@@ -194,16 +265,19 @@ def tv(x, a):
 def tv_der(x, a):
     return np.choose(x >= 0, [np.inf, np.sign(x - 1)])
     
+def tv_hess(x, a):
+    return np.choose(x >= 0, [np.inf, 0])
+    
 def tv_conj(y, a):
     return np.where(y <= 1, np.maximum(y, -1), np.inf)
 
 def tv_conj_der(x, a):
     return np.select([np.abs(x) <= 1], [1], default=0)
   
-# not true since our entropy functions are +infty for negative inputs    
-# def tv_prox(x, a, eta):
-#     return torch.nn.Softshrink(lambd=eta)(x)
+def tv_prox(x, a, eta):
+    return torch.where(x + eta >= 0, torch.nn.Softshrink(lambd=eta)(x-1), 0)
     
+tv = entr_func(tv, tv_der, tv_hess, tv_conj, tv_conj_der, tv_prox, 1)
     
 def matusita(x, a):
     return np.abs(1 - x**(a))**(1/a)
@@ -224,6 +298,7 @@ def kafka_der(x, a):
 
 # see: math.stackexchange.com/a/4833038/545914
 def kafka_conj(x, a):
+    assert 0 <= x <= 1
     return 2 * (x - sp.special.betaincinv(1/a - 1, 2, x)**(1/a))/(sp.special.betaincinv(2, 1/a - 1, 1 - x)) - x  # this is only valid for 0 <= x <= 1
 
 # TODO: implement kafka_conj, kafka_conj_der
@@ -234,12 +309,40 @@ def marton(x, a):
 def marton_der(x, a):
     return 2*reLU(1 - x)
     
+def marton_hess(x, a):
+    return 0
+    
 def marton_conj(x, a):
     return np.choose(x <= 0, [np.inf, np.choose(x <= -2, [-1, 1/4*x**2 + x])])
     
 def marton_conj_der(x, a):
     return np.choose(x <= 0, [np.inf, np.choose(x <= -2, [0, 1/2*x + 1])])
+    
+def marton_prox(x, a, eta):
+    return torch.where(x >= - 2 * eta, torch.where(x <= 1, (x + 2 * eta)/(1 + 2*eta), x), 0)
         
+marton = entr_func(marton, marton_der, marton_hess, marton_conj, marton_conj_der, marton_prox, 0)
+
+def eq(x, a):
+    return torch.where(x == 1, 0, float('inf'))
+    
+def eq_der(x, a):
+    return eq(x, a)
+
+def eq_hess(x, a):
+    return eq(x, a)
+    
+def eq_conj(x, a):
+    return x
+    
+def eq_conj_der(x, a):
+    return 1
+    
+def eq_prox(x, a)
+    return 1/2 * (1 - x)**2
+    
+equality_indicator = entr_func(eq, eq_der, eq_hess, eq_conj, eq_conj_der, eq_prox, float('inf'))
+
 # define recession constants
 def rec_const(div, a = None):
     if div == 'power':
@@ -249,12 +352,6 @@ def rec_const(div, a = None):
             return 1 / (1 - a)
         elif a == 0:
             return 1
-
-    if div == 'tsallis':
-        if a >= 1:
-            return float('inf')
-        elif 0 < a < 1:
-            return a / (1 - a)
 
     if div in ['jeffreys', 'chi']:
         return float('inf')
@@ -266,11 +363,6 @@ def rec_const(div, a = None):
     if div in ['tv', 'reverse_kl', 'matusita', 'kafka']:
         return 1
     
-    if div == 'marton':
-        return 0
-        
-    if div == 'jensen_shannon':
-        return np.log(2)
         
     if div == 'perimeter':
         if a > 0:
@@ -280,4 +372,4 @@ def rec_const(div, a = None):
         elif a == 0:
             return 1/2
         elif a == 1:
-            return np.log(2)
+            return np.log(2)        

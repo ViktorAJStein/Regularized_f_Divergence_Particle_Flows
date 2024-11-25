@@ -1,5 +1,4 @@
 import os
-from warnings import warn
 import torch
 import ot
 import numpy as np
@@ -19,7 +18,7 @@ my_device = 'cuda' if use_cuda else 'cpu'
 
 
 def MMD_reg_f_div_flow(
-        a=1,  # divergence parameter
+        a=3,  # divergence parameter
         s=.1,  # kernel parameter
         N=1000,  # number of prior particles
         M=1000,  # number of target particles
@@ -29,10 +28,10 @@ def MMD_reg_f_div_flow(
         plot=True,  # plot particles along the evolution
         arrows=False,  # plots arrows at particles to show their gradients
         timeline=True,  # plots timeline of functional value along the flow
-        kern=inv_log,  # kernel
+        kern=imq,  # kernel
         dual=False,  # decide whether to solve dual problem as well
         div=tsallis,  # entropy function
-        target_name='bananas',  # name of the target measure nu
+        target_name='circles',  # name of the target measure nu
         verbose=True,  # decide whether to print warnings and information
         compute_W2=False,  # compute W2 dist of particles to target along flow
         save_opts=False,  # save minimizers and gradients along the flow
@@ -40,9 +39,9 @@ def MMD_reg_f_div_flow(
         st=42,  # random state for reproducibility
         annealing=False,  # decide wether to use the annealing heuristic
         annealing_factor=0,  # factor by which to divide lambda
-        tight=False,  # decide whether to use the tight variational formulation
-        armijo = False,  # decide whether to use Armijo backtracking line search in EG
-        FFBS = False,  # decide whether to use fast FBS for the not-tight problem
+        tight=True,  # decide whether to use the tight variational formulation
+        armijo=True,  # decide whether to use Armijo backtracking line search in EG
+        FFBS=False,  # decide whether to use fast FBS for the not-tight problem
         ):
     '''
     @return:    func_value:    torch tensor of length iterations,
@@ -54,25 +53,22 @@ def MMD_reg_f_div_flow(
                 # KALE_values:   torch tensor of length iterations,
                 #                regularized KL divergence between particles and target along the flow
     '''
+    if target_name == 'circles' and M == N and M % 3:
+        M = (M // 3) * 3
+        N = M
 
     iterations = int(max_time / step_size) + 1  # max number of iterations
 
     kern_der = globals().get(kern.__name__ + '_der')
     kernel = kern.__name__
-    B = emb_const(kern, s)  # embedding constant H_K \hookrightarrow C_0
-    divergence = div.__name__
-    div_reces = rec_const(divergence, a)  # recession constant of entropy function
-    div_conj = globals().get(div.__name__ + '_conj')  # convex conjugate of the entropy function
-    div_conj_der = globals().get(div.__name__ + '_conj_der')  # derivative of div_conj
-    div_der = globals().get(div.__name__ + '_der')  # derivative of div
-    div_torch = globals().get(div.__name__ + '_torch')  # derivative of div
-    div_der_torch = globals().get(div.__name__ + '_der_torch')  # derivative of div
-    div_prox = globals().get(div.__name__ + '_prox')  # proximal mapping   of div    
-    folder_name = f"{divergence},a={a},lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name},state={st}_{annealing}={annealing_factor},tight={tight},armijo={armijo},FFBS={FFBS}"
+    B = emb_const(kern, s)  # embedding constant H_K \hookrightarrow C_0 
+    div_torch = globals().get(div.name + '_torch')  # derivative of div
+    div_der_torch = globals().get(div.name + '_der_torch')  # derivative of div
+    folder_name = f"{div.name},a={a},lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name},state={st},{annealing}={annealing_factor},tight={tight},armijo={armijo},FFBS={FFBS}"
     make_folder(folder_name)
 
     if verbose and B:
-        print(f'Kernel is {kernel}, embedding constant is {round(B,2)}, recession constant is {div_reces}')
+        print(f'Kernel is {kernel}, embedding constant is {round(B,2)}, recession constant is {div.reces(a)}')
 
     target, prior = generate_prior_target(N, M, st, target_name) 
     torch.save(target, folder_name + f'/target.pt')
@@ -104,9 +100,9 @@ def MMD_reg_f_div_flow(
         # plot the particles
         if plot and not n % 1000 or n in snapshots:
             if annealing:
-                img_name = f'/Reg_{divergence}{a}flow,annealing,tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
+                img_name = f'/Reg_{div.name}{a}flow,annealing,tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
             else:
-                img_name = f'/Reg_{divergence}{a}flow,lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
+                img_name = f'/Reg_{div.name}{a}flow,lambd={lambd},tau={step_size},{kernel},{s},{N},{M},{max_time},{target_name}-{n}.png'
 
             X_cpu = X.cpu()
             if d == 2:
@@ -168,8 +164,8 @@ def MMD_reg_f_div_flow(
             W2[n] = ot.emd2(a, b, M2)
 
         # annealing
-        if annealing and div_reces not in [0.0, float('inf')]:
-            lower_bd_lambd = (2 * torch.sqrt(2*MMD[n]) * B / div_reces).item()
+        if annealing and div.reces(a) not in [0.0, float('inf')]:
+            lower_bd_lambd = (2 * torch.sqrt(2*MMD[n]) * B / div.reces(a)).item()
             lower_bds_lambd[n] = lower_bd_lambd
             if not (lambd > lower_bd_lambd):
                 print("Condition is not fulfilled")
@@ -182,15 +178,15 @@ def MMD_reg_f_div_flow(
 
         lambdas[n] = lambd
 
-        # first: reduced objectives for the case div_reces = float('inf')
+        # first: reduced objectives for the case div.reces(a) = float('inf')
         # TODO: reduce this objective
         def primal_objective(q):
-            convex_term = 1/M * np.sum(div(q, a))
+            convex_term = 1/M * np.sum(div.fnc(q, a))
             quadratic_term = q.T @ kyy_cpu @ q - 2 * (M / N) * (q.T @ row_sum_kyx_cpu)
             return convex_term + 1/(2 * lambd * M * M) * quadratic_term
 
         def primal_jacobian(q):
-            convex_term = 1/M * div_der(q, a)
+            convex_term = 1/M * div.der(q, a)
             linear_term = kyy_cpu @ q - M / N * row_sum_kyx_cpu
             return convex_term + 1/(lambd * M * M) * linear_term
 
@@ -206,17 +202,17 @@ def MMD_reg_f_div_flow(
 
 
         def primal_KALE_objective(q):
-            convex_term = np.sum(div(q, 1))
+            convex_term = np.sum(div.fnc(q, 1))
             quadratic_term = quadratic_term = q.T @ kyy_cpu @ q - 2 * (M / N) * (q.T @ row_sum_kyx_cpu)
             return 1/M * convex_term + 1/(2 * lambd * M * M) * quadratic_term
 
         def primal_KALE_jacobian(q):
-            convex_term = div_der(q, 1)
+            convex_term = div.der(q, 1)
             linear_term = kyy_cpu @ q - M / N * row_sum_kyx_cpu
             return 1/M * convex_term + 1/(lambd * M * M) * linear_term
 
         def dual_objective_reduced(b):  # b.shape = (M, )
-            convex_term = - 1 / M * div_conj(kyy_cpu @ b + 1 / (lambd * N) * row_sum_kyx_cpu, a).sum()
+            convex_term = - 1 / M * div.conj(kyy_cpu @ b + 1 / (lambd * N) * row_sum_kyx_cpu, a).sum()
             quadratic_term = - lambd / 2 * b.T @ kyy_cpu @ b
             return convex_term + quadratic_term
 
@@ -225,23 +221,23 @@ def MMD_reg_f_div_flow(
             linear_term = - lambd * kyy_cpu @ b
             return convex_term + linear_term
 
-        # now the primal objective for div_reces < float('inf')
+        # now the primal objective for div.reces(a) < float('inf')
         def primal_objective_fin_rec(q):
-            convex_term = 1/M * np.sum(div(q[:M], a))
-            linear_term = div_reces / M * np.sum(q[M:])
+            convex_term = 1/M * np.sum(div.fnc(q[:M], a))
+            linear_term = div.reces(a) / M * np.sum(q[M:])
             quadratic_term = 1/(2 * lambd * M * M) * q.T @ K @ q
             return convex_term + linear_term + quadratic_term
 
         def primal_jacobian_fin_rec(q):
-            convex_term = div_der(q[:M], a)
-            joint_term = 1/M * np.concatenate((convex_term, div_reces * np.ones(N)))
+            convex_term = div.der(q[:M], a)
+            joint_term = 1/M * np.concatenate((convex_term, div.reces(a) * np.ones(N)))
             linear_term = K @ q
             return joint_term + 1/(lambd * M * M) * linear_term
 
         # this is minus the value of the objective
         def dual_objective(b):
             h = K @ b
-            c1 = np.concatenate((div_conj(h[:M], a), - h[M:]))
+            c1 = np.concatenate((div.conj(h[:M], a), - h[M:]))
             c3 = b.T @ h
             return 1/N * np.sum(c1) + lambd/2 * c3
 
@@ -252,13 +248,13 @@ def MMD_reg_f_div_flow(
             
         def dual_objective_torch(b):
             h = K_torch @ b
-            c1 = torch.cat((div_conj(h[:M], a), - h[M:]))
+            c1 = torch.cat((div.conj(h[:M], a), - h[M:]))
             c3 = b.T @ h
             return 1/N * torch.sum(c1) + lambd/2 * c3
         
         def dual_jacobian_torch(b):
             h = K_torch @ b
-            x = torch.cat((div_conj_der(h[:M], a), - torch.ones(N)), axis=0)
+            x = torch.cat((div.conj_der(h[:M], a), - torch.ones(N)), axis=0)
             return 1/N * K_torch @ x + lambd * h
             
         if not tight:
@@ -267,12 +263,12 @@ def MMD_reg_f_div_flow(
                 if n > 0:  # warm start
                     q, x = q_torch, q_torch
                 else:
-                    if div_reces != float('inf'):
+                    if div.reces(a) != float('inf'):
                         q, x = 1/10 * torch.ones(M + N, device=my_device), 1/10 * torch.ones(M + N, device=my_device)
                     else:
                         q, x = 1/10 * torch.ones(M, device=my_device), 1/10 * torch.ones(M, device=my_device)
                 max_iter_FFBS = 100
-                if div_reces != float('inf'):
+                if div.reces(a) != float('inf'):
                     K_norm = torch.norm(K_torch)
                 else:
                     K_norm = torch.norm(kyy)
@@ -281,12 +277,12 @@ def MMD_reg_f_div_flow(
                     q_old = q.clone().to(my_device)
                     t_next = 1/2 * (1 + torch.sqrt(1 + 4 * t**2))
                     y = q + (t - 1)/t_next * (q - q_old)
-                    if div_reces != float('inf'):
-                        grad_y = div_reces / M * torch.concatenate((torch.ones(M), torch.zeros(N))) + 1/(lambd * M * M) * K_torch @ y
-                        q = torch.concatenate((div_prox(y - step_size_FFBS * grad_y, a, step_size_FFBS), y[M+1:]))
+                    if div.reces(a) != float('inf'):
+                        grad_y = div.reces(a) / M * torch.concatenate((torch.ones(M), torch.zeros(N))) + 1/(lambd * M * M) * K_torch @ y
+                        q = torch.concatenate((div.prox(y - step_size_FFBS * grad_y, a, step_size_FFBS), y[M+1:]))
                     else:
                         grad_y = 1/(lambd * M * M) * kyy @ y
-                        q = torch.tensor(div_prox(y - step_size_FFBS * grad_y, a, step_size_FFBS), device=my_device)
+                        q = torch.tensor(div.prox(y - step_size_FFBS * grad_y, a, step_size_FFBS), device=my_device)
                     if torch.norm(grad_y) < 1e-3 and torch.norm(q - q_old) / torch.norm(q) < 1e-3:
                         if verbose:
                             print(f'Converged in {k + 1} iterations')
@@ -299,12 +295,12 @@ def MMD_reg_f_div_flow(
                 if n > 0:  # warm start
                     warm_start_q = q_np  # take solution from last iteration
                     if dual:
-                        if div_reces != float('inf'):
+                        if div.reces(a) != float('inf'):
                             warm_start_b = - 1/(lambd*M) * q_np
                         else:
                             warm_start_b = - 1/(lambd*N) * q_np
                 else:  # initial values
-                    if div_reces != float('inf'):
+                    if div.reces(a) != float('inf'):
                         warm_start_q = 1/1000*np.ones(N + M)
                         if dual:
                             warm_start_b = - 1/(lambd * M) * warm_start_q
@@ -314,14 +310,14 @@ def MMD_reg_f_div_flow(
                             warm_start_b = - 1/(lambd*N) * 1/1000*np.ones(M)
         
                 optimizer_kwargs = dict(disp=0)
-                if div_reces != float('inf'):
+                if div.reces(a) != float('inf'):
                     q_np, prim_value, _ = sp.optimize.fmin_l_bfgs_b(
                         primal_objective_fin_rec,
                         warm_start_q,
                         fprime=primal_jacobian_fin_rec,
                         bounds=[(0, None) for _ in range(M)] + [(-M/N, None) for _ in range(N)],
                         **optimizer_kwargs)
-                    prim_value += div_reces
+                    prim_value += div.reces(a)
                 else:
                     q_np, prim_value, _ = sp.optimize.fmin_l_bfgs_b(
                         primal_objective,
@@ -352,8 +348,8 @@ def MMD_reg_f_div_flow(
                 q_prev = q
                 q = q * torch.exp(- eta * primal_jacobian_torch(q))
                 q /= 1/M * torch.sum(q)
-                res = torch.norm(primal_jacobian_torch(q)).item() / torch.norm(primal_jacobian_torch(torch.ones(M, device=my_device))).item()
-                iter_diff = torch.norm(q - q_prev).item()
+                res = torch.norm(primal_jacobian_torch(q)) / torch.norm(primal_jacobian_torch(torch.ones(M, device=my_device)))
+                iter_diff = torch.norm(q - q_prev)
                 if res < 1e-6 or iter_diff < 1e-6:  # Termination condition
                     if verbose:
                         print(f"Residual is {res.item()}, iteration difference is {iter_diff.item()}")
@@ -386,7 +382,7 @@ def MMD_reg_f_div_flow(
         func_values[n] = prim_value
 
         if dual:
-            if div_reces != float('inf'):
+            if div.reces(a) != float('inf'):
                 b_np, minus_dual_value, _ = sp.optimize.fmin_l_bfgs_b(dual_objective, warm_start_b, fprime = dual_jacobian, **optimizer_kwargs)
                 dual_values[n]= - minus_dual_value
             else:
@@ -404,12 +400,12 @@ def MMD_reg_f_div_flow(
             relative_duality_gaps[n] = relative_duality_gap
             gap_tol, relative_gap_tol = 1e-2, 1e-2
             if duality_gap > gap_tol and verbose:
-                warn(f'Iteration {n}: duality gap = {duality_gap:.4f} > tolerance = {gap_tol}.')
+                print(f'Iteration {n}: duality gap = {duality_gap:.4f} > tolerance = {gap_tol}.')
             if relative_duality_gap > relative_gap_tol and verbose:
-                warn(f'Iteration {n}: relative duality gap = {relative_duality_gap:.4f} > tolerance = {relative_gap_tol}.')
+                print(f'Iteration {n}: relative duality gap = {relative_duality_gap:.4f} > tolerance = {relative_gap_tol}.')
 
         if not tight and not FFBS:
-            if div_reces != float('inf'):
+            if div.reces(a) != float('inf'):
                 pseudo_dual_value = - dual_objective(- 1/(lambd * M) * q_np)
             else:
                 pseudo_dual_value = dual_objective(1/(lambd * N) * np.concatenate((q_np, - M / N * np.ones(N))))
@@ -422,9 +418,9 @@ def MMD_reg_f_div_flow(
             relative_pseudo_duality_gaps[n] = relative_pseudo_duality_gap
             pseudo_gap_tol, relative_pseudo_gap_tol = 1e-2, 1e-2
             if pseudo_duality_gap > pseudo_gap_tol and verbose:
-                  warn(f'Iteration {n}: pseudo-duality gap = {pseudo_duality_gap:.4f} > tolerance = {pseudo_gap_tol}.')
+                  print(f'Iteration {n}: pseudo-duality gap = {pseudo_duality_gap:.4f} > tolerance = {pseudo_gap_tol}.')
             if relative_pseudo_duality_gap > relative_pseudo_gap_tol and verbose:
-                  warn(f'Iteration {n}: relative pseudo-duality gap = {relative_pseudo_duality_gap:.4f} > tolerance = {relative_pseudo_gap_tol}.')
+                  print(f'Iteration {n}: relative pseudo-duality gap = {relative_pseudo_duality_gap:.4f} > tolerance = {relative_pseudo_gap_tol}.')
 
             q_torch = torch.tensor(q_np, dtype=torch.float64, device=my_device)
 
@@ -433,7 +429,7 @@ def MMD_reg_f_div_flow(
             torch.save(q_torch, f'{folder_name}/q_at_{n}.pt')
 
         Z = torch.cat((Y, X))
-        if div_reces != float('inf'):
+        if div.reces(a) != float('inf'):
             temp = q_torch.view(M+N, 1, 1) * kern_der(X, Z, s)
         else:
             qtilde = torch.cat( (q_torch, - M / N * torch.ones(N, device=my_device)) )
@@ -450,24 +446,24 @@ def MMD_reg_f_div_flow(
         X -= step_size * h_star_grad
 
     suffix = f',{lambd},{step_size},{N},{M},{kernel},{s},{max_time},{target_name}'
-    torch.save(func_values, folder_name + f'/Reg_{divergence}-{a}_Div_value_timeline{suffix}.pt')
-    torch.save(MMD, folder_name + f'/Reg_{divergence}-{a}_Div_MMD_timeline{suffix}.pt')
+    torch.save(func_values, folder_name + f'/Reg_{div.name}-{a}_Div_value_timeline{suffix}.pt')
+    torch.save(MMD, folder_name + f'/Reg_{div.name}-{a}_Div_MMD_timeline{suffix}.pt')
     if compute_W2:
-        torch.save(W2, folder_name + f'/Reg_{divergence}-{a}_DivW2_timeline{suffix}.pt')
+        torch.save(W2, folder_name + f'/Reg_{div.name}-{a}_DivW2_timeline{suffix}.pt')
     if dual:
-        torch.save(duality_gaps, folder_name + f'/Reg_{divergence}-{a}_Divergence_duality_gaps_timeline{suffix}.pt')
-        torch.save(relative_duality_gaps, folder_name + f'/Reg_{divergence}-{a}_Divergence_rel_duality_gaps_timeline{suffix}.pt')
-    torch.save(pseudo_duality_gaps, folder_name + f'/Reg_{divergence}-{a}_Divergence_pseudo_duality_gaps_timeline{suffix}.pt')
-    torch.save(relative_pseudo_duality_gaps, folder_name + f'/Reg_{divergence}-{a}_Divergence_rel_pseudo_duality_gaps_timeline{suffix}.pt')       
+        torch.save(duality_gaps, folder_name + f'/Reg_{div.name}-{a}_Divergence_duality_gaps_timeline{suffix}.pt')
+        torch.save(relative_duality_gaps, folder_name + f'/Reg_{div.name}-{a}_Divergence_rel_duality_gaps_timeline{suffix}.pt')
+    torch.save(pseudo_duality_gaps, folder_name + f'/Reg_{div.name}-{a}_Divergence_pseudo_duality_gaps_timeline{suffix}.pt')
+    torch.save(relative_pseudo_duality_gaps, folder_name + f'/Reg_{div.name}-{a}_Divergence_rel_pseudo_duality_gaps_timeline{suffix}.pt')       
     if timeline: # plot MMD, objective value, and W2 along the flow
         suffix = f'{a},{lambd},{step_size},{kernel},{s}'
-        plot_MMD(MMD.cpu().numpy(), f'/{divergence}_MMD_timeline,{suffix}.png', folder_name)
-        plot_func_values(a, dual_values, pseudo_dual_values, func_values, lambd, f'/{divergence}_objective_timeline,{suffix}.png', folder_name)
-        plot_lambdas(lambdas, lower_bds_lambd, f'/{divergence}_lambd_timeline,{suffix}.png', folder_name)
+        plot_MMD(MMD.cpu().numpy(), f'/{div.name}_MMD_timeline,{suffix}.png', folder_name)
+        plot_func_values(a, dual_values, pseudo_dual_values, func_values, lambd, f'/{div.name}_objective_timeline,{suffix}.png', folder_name)
+        plot_lambdas(lambdas, lower_bds_lambd, f'/{div.name}_lambd_timeline,{suffix}.png', folder_name)
         if compute_W2:
-          plot_W2(W2.cpu().numpy(), f'/{divergence}_W2_timeline,{suffix}.png')
+          plot_W2(W2.cpu().numpy(), f'/{div.name}_W2_timeline,{suffix}.png')
         if not tight:
-            plot_gaps(a, duality_gaps, relative_pseudo_duality_gaps, pseudo_duality_gaps, relative_duality_gaps, f'/{divergence}_duality_gaps_timeline,{suffix}.png', folder_name)
+            plot_gaps(a, duality_gaps, relative_pseudo_duality_gaps, pseudo_duality_gaps, relative_duality_gaps, f'/{div.name}_duality_gaps_timeline,{suffix}.png', folder_name)
 
     return torch.tensor(func_values), MMD, W2 #, KALE_values
 

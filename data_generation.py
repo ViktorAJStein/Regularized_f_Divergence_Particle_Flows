@@ -3,14 +3,26 @@ import torch
 from sklearn import datasets
 
 def generate_prior_target(N, M, st, target):
-    targets = ['circles', 'cross', 'bananas', 'GMM', 'four_wells', 'circles', 'moons', 'swiss_roll_2d', 'swiss_roll_3d', 's_curve', 'annulus']
+    targets = ['circles', 'cross', 'bananas', 'GMM', 'four_wells', 'circles', 'moons', 'swiss_roll_2d', 'swiss_roll_3d', 's_curve', 'annulus', 'low_dim_gaussian']
     if target in targets:
         return globals().get('generate_' + target)(N, M, st)
     else:
         raise ValueError("Invalid target specified")
 
 
-def generate_four_wells(M, N, st, d = 2):
+def generate_low_dim_gaussian(N, M, st, d = 2):
+    m1 = 1/2*torch.ones(d)
+    M1 = torch.tensor([[1.0, 0.0], [0.0, -1.0]])
+    v = 1/200*torch.eye(d)
+    torch.manual_seed(st)
+    normal1 = torch.distributions.MultivariateNormal(m1, v)
+    target1 = normal1.sample((M,))
+    target = torch.cat( (target1, torch.zeros(M, 8)), dim=1)
+    prior = torch.cat( (torch.zeros((N, 8)), normal1.sample((N,)) ), dim=1 )
+    return target, prior
+
+
+def generate_four_wells(N, M, st, d = 2):
     quarterM = int(M/4)
     m1 = 1/2*torch.ones(d)
     M1 = torch.tensor([[1.0, 0.0], [0.0, -1.0]])
@@ -31,6 +43,7 @@ def generate_four_wells(M, N, st, d = 2):
     prior = normal1.sample((N,))
     
     return target, prior
+    
 
 def generate_GMM(N, M, st, d = 2):
     # target = sum of two Gaussians
@@ -72,7 +85,7 @@ def generate_circles(N, M, st=42, r=.3, delta=.5):
     target : np.array, shape = (M, 2)
 
     '''
-    n = int(M/3)
+    n = int(M // 3)
     # TODO: convert to pytorch code
     X = np.c_[r * np.cos(np.linspace(0, 2 * np.pi, n + 1)), r * np.sin(np.linspace(0, 2 * np.pi, n + 1))][:-1]  # noqa
     for i in [1, 2]:

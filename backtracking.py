@@ -5,13 +5,14 @@ def armijo_search(func, q, eta, p, fx, t, tau, max_iter=20):
     for j in range(max_iter):
         if func(q + eta * p) <= fx - eta * t:
             return eta
+            print(f'Armijo line search took {j} iterations')
         eta *= tau
     return eta
     
 
 def two_way_backtracking_line_search(f, grad_f, x, direction, c1=1e-4, c2=0.9, alpha0=1.0):
     """
-    Two-way backtracking line search in PyTorch.
+    Two-way backtracking line search
     
     Args:
         f (callable): Objective function. Takes a tensor `x` as input and returns a scalar.

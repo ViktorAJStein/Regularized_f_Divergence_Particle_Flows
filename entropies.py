@@ -1,13 +1,13 @@
 import torch
 import numpy as np
 import scipy as sp
-
+from torchlambertw.special import lambertw as lw
 
 def lambertw_ext(x):
     mask = x > -1 / np.exp(1)
     result = np.empty_like(x)
-    result[mask] = sp.special.lambertw(x[mask])
-    result[~mask] = sp.special.lambertw(x[~mask], k=-1)
+    result[mask] = sp.special.lambertw(x[mask]) # always real
+    result[~mask] = np.real(sp.special.lambertw(x[~mask], k=-1)) # only real for - 1/e < x < 0 ...
     return result
 
 def reLU(x):
@@ -26,11 +26,22 @@ class entr_func:
         self.prox = prox
         self.reces = reces
         
+# if the third derivative of the entropy function, f.third, is available
+# we can use Halley's method, which has a cubic convergence rate        
+def prox_halley(entr, a, eta, x, threshold=1e-7):
+    y = reLu(x + 100)
+    while torch.abs(entr.der(y, a) + 1/eta * (y - x)) > threshold:
+        fn = (entr.der(y, a) + 1/eta * (y - x))
+        fn1 = (entr.hess(y, a) + 1 / eta)
+        fn2 = entr.third(y, a)
+        y -= 2* fn * fn1 / (fn1**2 - fn * fn2)
+    return y
 
-def prox_newton(entr, eta, x, threshold=1e-7):
-    y = 100
-    while torch.abs(entr.der(y) + 1/eta * (y - x)) > threshold:
-        y -= (eta*entr.der(y) + y - x)/(eta*entr.hess(y) + 1)
+def prox_newton(entr, a, eta, x, threshold=1e-7):
+    y = reLU(x + 100)
+    while torch.abs(entr.der(y, a) + 1/eta * (y - x)) > threshold:
+        y -= (eta*entr.der(y, a) + y - x)/(eta*entr.hess(y, a) + 1)
+    return y
 
 
 def tsallis_generator(x, a):
@@ -94,12 +105,12 @@ def tsallis_der_torch(x, a):
         return torch.log(x)
         
 def tsallis_prox(x, a, eta):
-    eta = eta.cpu().numpy()
-    x = x.cpu().numpy()
     if a != 1:
-        pass  # TODO!
+        return torch.tensor([prox_newton(tsallis, a, eta, x) for x in x])
     else:
-        return eta * lambertw_ext(1/eta * np.exp(x/eta))
+        eta = eta.cpu().numpy()
+        x = x.cpu().numpy()
+        return eta * tw(1/eta * np.exp(x/eta))
 
 def tsallis_rec(a):
     if a >= 1:
@@ -323,6 +334,7 @@ def marton_prox(x, a, eta):
         
 marton = entr_func(marton, marton_der, marton_hess, marton_conj, marton_conj_der, marton_prox, 0)
 
+
 def eq(x, a):
     return torch.where(x == 1, 0, float('inf'))
     
@@ -338,8 +350,28 @@ def eq_conj(x, a):
 def eq_conj_der(x, a):
     return 1
     
-def eq_prox(x, a)
-    return 1/2 * (1 - x)**2
+def eq_prox(x, a, eta):
+    return (1 - x)**2 / (2 * eta)
+    
+equality_indicator = entr_func(eq, eq_der, eq_hess, eq_conj, eq_conj_der, eq_prox, float('inf'))
+
+def z(x, a):
+    return torch.where(x >= 0, 0, float('inf'))
+    
+def z_der(x, a):
+    return z(x, a)
+
+def z_hess(x, a):
+    return z(x, a)
+    
+def z_conj(x, a):
+    return torch.where(x < 0, 0, float('inf'))
+    
+def z_conj_der(x, a):
+    return z_conj(x, a)
+    
+def z_prox(x, a, eta):
+    return torch.where(x >= 0, 0, x**2 / (2 * eta))
     
 equality_indicator = entr_func(eq, eq_der, eq_hess, eq_conj, eq_conj_der, eq_prox, float('inf'))
 

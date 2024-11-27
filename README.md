@@ -46,9 +46,10 @@ Alternatively you can use the [GitHub issue tracker](https://github.com/ViktorAJ
 Contents
 ---------------------------
 1. Required packages
-2. Supported kernels
-3. Supported $f$-divergences / entropy functions
-4. Supported targets
+2. Options of the main method
+3. Supported kernels
+4. Supported $f$-divergences / entropy functions
+5. Supported targets
 
 Required packages
 ---------------------------
@@ -64,6 +65,36 @@ This script requires the following Python packages. We tested the code with Pyth
 
 Usually code is also compatible with some later or earlier versions of those packages.
 
+Options of the main method
+---------------------------
+
+Parameter | Type    | Explanation 
+----------| --------|-------
+a         | float   | divergence parameter 
+s         | float   | kernel parameter > 0
+N         | int     | number of prior particles
+M         | int     | number of target particles
+lambd     | float   | regularization parameter > 0
+step_size | float   | step size for Euler forward discretization
+max_time  | float   | maximal time horizon for simulation
+plot      | boolean | decide whether to plot particles along the evolution
+arrows    | boolean | decide whether to plot arrows at particles to show their gradients
+timeline  | boolean | decide whether to plot timeline of functional value along the flow
+kern      | function| kernel (see below)
+dual      | bolean  | decide whether to solve dual problem as well
+div       | class entr_fnc | entropy function
+target_name| string  | name of the target measure nu
+verbose    | boolean | decide whether to print warnings and information
+compute_W2 | boolean | decide whether to compute W2 dist of particles to target along flow
+save_opts  | boolean | decide whether to save minimizers and gradients along the flow
+compute_KALE| boolean | decide whether to compute MMD-reg. KL-divergence from particle to target
+st=42      | int      | random state for reproducibility
+annealing  | boolean  | decide wether to use the annealing heuristic
+annealing_factor | int | factor by which to divide lambda
+tight      | boolean  |  decide whether to use the tight variational formulation
+line_search| string   | step size choice for the exponetial GD for the tight formulation
+FFBS       | boolean  | decide whether to use fast FBS for the not-tight problem
+torch_LBFGS_B | boolean |decide whether to use the torch (and thus GPU) version of L-BFGS-B
 
 Supported kernels
 ---------------------------

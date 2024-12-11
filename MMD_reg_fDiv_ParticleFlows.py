@@ -19,20 +19,20 @@ my_device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 def MMD_reg_f_div_flow(
-        a=4,  # divergence parameter
+        a=2,  # divergence parameter
         s=.1,  # kernel parameter
-        N=300,  # number of prior particles
-        M=300,  # number of target particles
+        N=30,  # number of prior particles
+        M=30,  # number of target particles
         lambd=.01,  # regularization
         step_size=.001,  # step size for Euler forward discretization
         max_time=1,  # maximal time horizon for simulation
         plot=True,  # plot particles along the evolution
         arrows=False,  # plots arrows at particles to show their gradients
         timeline=True,  # plots timeline of functional value along the flow
-        kern=imq,  # kernel
-        dual=True,  # decide whether to solve dual problem as well
+        kern=inv_log,  # kernel
+        dual=False,  # decide whether to solve dual problem as well
         div=tsallis,  # entropy function
-        target_name='circles',  # name of the target measure nu
+        target_name='bananas',  # name of the target measure nu
         verbose=True,  # decide whether to print warnings and information
         compute_W2=False,  # compute W2 dist of particles to target along flow
         save_opts=False,  # save minimizers and gradients along the flow
@@ -42,7 +42,7 @@ def MMD_reg_f_div_flow(
         annealing_factor=0,  # factor by which to divide lambda
         tight=False,  # decide whether to use the tight variational formulation
         line_search='Polyak', # use the polyak stepsize, which only needs on gradient computation  
-        FFBS=False,  # decide whether to use fast FBS for the not-tight problem
+        FFBS=True,  # decide whether to use fast FBS for the not-tight problem
         torch_LBFGS_B=False,  # decide whether to use the torch (and thus GPU) version of L-BFGS-B
         Polyak=False
         ):
@@ -140,7 +140,6 @@ def MMD_reg_f_div_flow(
                 plt.gca().set_aspect('equal')
                 plt.axis('off')
                 plt.savefig(folder_name + img_name, dpi=300, bbox_inches='tight')
-                plt.show()
                 plt.close()
             elif d == 3:
                 fig = plt.figure(figsize=(8, 6))
@@ -304,8 +303,8 @@ def MMD_reg_f_div_flow(
                         div.prox(y_tmp[:M+1], a, lambd * M / K_norm), y_tmp[M+1:] - div.reces(a) * lambd * M / K_norm
                         ))
                     else:
-                        y_tmp = y - 1/K_norm * kyy @ y
-                        q = torch.tensor([div.prox(j, a, lambd * M / K_norm) for j in y_tmp], dtype=torch.double)
+                        y_tmp = y - 1 / K_norm * kyy @ y + M / (N * K_norm) * row_sum_kyx_torch
+                        q = torch.tensor([div.prox(j, a, lambd * M / K_norm) for j in y_tmp], dtype=torch.double, device=my_device)
                     if torch.norm(y_tmp) < 1e-3 and torch.norm(q - q_old) / torch.norm(q) < 1e-3:
                         if verbose:
                             print(f'Converged in {k + 1} iterations')
@@ -341,7 +340,7 @@ def MMD_reg_f_div_flow(
                         if dual:
                             warm_start_b = - 1/(lambd*N) * 1/100*np.ones(M)
 
-                optimizer_kwargs = dict(factr=10.0, maxls=200)
+                optimizer_kwargs = dict(factr=10000000.0)  # this is the default value
                 if div.reces(a) != float('inf'):
                     q_np, prim_value, _ = sp.optimize.fmin_l_bfgs_b(
                         primal_objective_fin_rec,
@@ -389,10 +388,9 @@ def MMD_reg_f_div_flow(
                 print(f'Iter {n}: duality gap = {duality_gap:.4f} > tol = {gap_tol}.')
             if relative_duality_gap > relative_gap_tol and verbose:
                 print(f'Iter {n}: relative duality gap = {relative_duality_gap:.4f} > tol = {relative_gap_tol}.')
-
+        '''
         if not tight or not FFBS or not torch_LBFGS_B:
-            if torch_LBFGS_B:
-                q_np = q_torch.numpy()
+            q_np = q_torch.cpu().numpy()
             if div.reces(a) != float('inf'):
                 pseudo_dual_value = - dual_objective(1/(lambd * N) * np.concatenate((q_np, - M / N * np.ones(N))))
             else:
@@ -400,9 +398,13 @@ def MMD_reg_f_div_flow(
 
             # (relative) pseudo-duality gaps
             pseudo_dual_values[n] = pseudo_dual_value
-            pseudo_duality_gap = np.abs(prim_value - pseudo_dual_value)
+            if isinstance(prim_value, torch.Tensor):
+                pseudo_duality_gap = torch.abs(prim_value - pseudo_dual_value)
+                relative_pseudo_duality_gap = pseudo_duality_gap / torch.min((torch.abs(prim_value), torch.abs(pseudo_dual_value)))
+            elif isinstance(prim_value, np.ndarray):
+                pseudo_duality_gap = np.abs(prim_value - pseudo_dual_value)
+                relative_pseudo_duality_gap = pseudo_duality_gap / np.min((np.abs(prim_value), np.abs(pseudo_dual_value)))
             pseudo_duality_gaps[n] = pseudo_duality_gap
-            relative_pseudo_duality_gap = pseudo_duality_gap / np.min((np.abs(prim_value), np.abs(pseudo_dual_value)))
             relative_pseudo_duality_gaps[n] = relative_pseudo_duality_gap
             pseudo_gap_tol, relative_pseudo_gap_tol = 1e-2, 1e-2
             if pseudo_duality_gap > pseudo_gap_tol and verbose:
@@ -415,7 +417,7 @@ def MMD_reg_f_div_flow(
         # save solution vector in every 10000-th iteration (to conserve memory)
         if plot and save_opts and not n % 1e5:
             torch.save(q_torch, f'{folder_name}/q_at_{n}.pt')
-
+        '''
         Z = torch.cat((Y, X))
         if div.reces(a) != float('inf'):
             temp = q_torch.view(M+N, 1, 1) * kern_der(X, Z, s)
@@ -437,7 +439,7 @@ def MMD_reg_f_div_flow(
     torch.save(func_values, folder_name + f'/Reg_{div.name}-{a}_Div_value_{suffix}.pt')
     torch.save(MMD, folder_name + f'/Reg_{div.name}-{a}_MMD_{suffix}.pt')
     if compute_W2:
-        torch.save(W2, folder_name + f'/Reg_{div.name}-{a}_DivW2_timeline{suffix}.pt')
+        torch.save(W2, folder_name + f'/Reg_{div.name}-{a}_DivW2_{suffix}.pt')
     if dual:
         torch.save(duality_gaps, folder_name + f'/Reg_{div.name}-{a}_duality_gaps_{suffix}.pt')
         torch.save(relative_duality_gaps, folder_name + f'/Reg_{div.name}-{a}_rel_duality_gaps_{suffix}.pt')
@@ -445,15 +447,15 @@ def MMD_reg_f_div_flow(
     torch.save(relative_pseudo_duality_gaps, folder_name + f'/Reg_{div.name}-{a}__rel_pseudo_duality_gaps_{suffix}.pt')       
     if timeline:  # plot MMD, objective value, and W2 along the flow
         suffix = f'timeline,{a},{lambd},{step_size},{kernel},{s}'
-        plot_MMD(MMD.cpu().numpy(), f'/{div.name}_MMD_timeline,{suffix}.png', folder_name)
+        plot_MMD(MMD.cpu().numpy(), f'/{div.name}_MMD_{suffix}.png', folder_name)
         if tight or torch_LBFGS_B:
             func_values_cpu = func_values.cpu().numpy()
         else:
             func_values_cpu = func_values
         plot_func_values(a, dual_values, pseudo_dual_values, func_values_cpu , lambd, f'/{div.name}_objective_{suffix}.png', folder_name)
-        plot_lambdas(lambdas, lower_bds_lambd, f'/{div.name}_lambd_timeline,{suffix}.png', folder_name)
+        plot_lambdas(lambdas, lower_bds_lambd, f'/{div.name}_lambd_{suffix}.png', folder_name)
         if compute_W2:
-          plot_W2(W2.cpu().numpy(), f'/{div.name}_W2_timeline,{suffix}.png')
+          plot_W2(W2.cpu().numpy(), f'/{div.name}_W2_timeline_{suffix}.png')
         if not tight:
             plot_gaps(a, duality_gaps, relative_pseudo_duality_gaps, pseudo_duality_gaps, relative_duality_gaps, f'/{div.name}_duality_gaps_{suffix}.png', folder_name)
 

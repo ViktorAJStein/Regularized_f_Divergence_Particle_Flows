@@ -81,20 +81,18 @@ plot      | boolean | decide whether to plot particles along the evolution
 arrows    | boolean | decide whether to plot arrows at particles to show their gradients
 timeline  | boolean | decide whether to plot timeline of functional value along the flow
 kern      | function| kernel (see below)
-dual      | bolean  | decide whether to solve dual problem as well
+primal    | bolean  | decide whether to solve the primal problem
+dual      | bolean  | decide whether to solve the dual problem
 div       | class entr_fnc | entropy function
 target_name| string  | name of the target measure nu
 verbose    | boolean | decide whether to print warnings and information
 compute_W2 | boolean | decide whether to compute W2 dist of particles to target along flow
 save_opts  | boolean | decide whether to save minimizers and gradients along the flow
-compute_KALE| boolean | decide whether to compute MMD-reg. KL-divergence from particle to target
 st=42      | int      | random state for reproducibility
 annealing  | boolean  | decide wether to use the annealing heuristic
 annealing_factor | int | factor by which to divide lambda
 tight      | boolean  |  decide whether to use the tight variational formulation
 line_search| string   | step size choice for the exponetial GD for the tight formulation
-FFBS       | boolean  | decide whether to use fast FBS for the not-tight problem
-torch_LBFGS_B | boolean |decide whether to use the torch (and thus GPU) version of L-BFGS-B
 
 Supported kernels
 ---------------------------

@@ -80,25 +80,27 @@ def generate_circles(N, M, st=42, r=.3, delta=.5):
     leftmost point of the rightmost ring.
     Returns
     -------
-    prior  : np.array, shape = (N, 2)
-        prior.
-    target : np.array, shape = (M, 2)
+    prior  : np.array, shape = (N, 2)  prior.
+    target : np.array, shape = (M, 2)  three rings target
 
     '''
-    n = int(M // 3)
-    # TODO: convert to pytorch code
-    X = np.c_[r * np.cos(np.linspace(0, 2 * np.pi, n + 1)), r * np.sin(np.linspace(0, 2 * np.pi, n + 1))][:-1]  # noqa
-    for i in [1, 2]:
-        X = np.r_[X, X[:n, :]-i*np.array([0, (2 + delta) * r])]
-    target = torch.from_numpy(X).to(torch.float64)
+    if M % 3:
+        raise Exception(f'M should be divisible by 3, but you chose M={M}')
+    else:
+        n = int(M // 3)
+        # TODO: convert to pytorch code
+        X = np.c_[r * np.cos(np.linspace(0, 2 * np.pi, n + 1)), r * np.sin(np.linspace(0, 2 * np.pi, n + 1))][:-1]  # noqa
+        for i in [1, 2]:
+            X = np.r_[X, X[:n, :]-i*np.array([0, (2 + delta) * r])]
+        target = torch.from_numpy(X).to(torch.float64)
+            
+        torch.manual_seed(st)
+        m = torch.tensor([0.0, -r])
+        v = 1e-4*torch.eye(2)
+        normal = torch.distributions.MultivariateNormal(m, v)
+        prior = normal.sample((N,))
         
-    torch.manual_seed(st)
-    m = torch.tensor([0.0, -r])
-    v = 1e-4*torch.eye(2)
-    normal = torch.distributions.MultivariateNormal(m, v)
-    prior = normal.sample((N,))
-    
-    return target, prior
+        return target, prior
 
 
 def generate_bananas(N, M, st, d=2):

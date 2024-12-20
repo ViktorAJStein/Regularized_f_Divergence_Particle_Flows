@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+torch.set_default_dtype(torch.float64)  # set higher precision
 
 '''
 This auxilliary file provides functions for many kernels, including Gaussian, (inverse) multiquadric,
@@ -23,7 +24,7 @@ def imq_der(x, y, s):
     diff = y[:,None, :] - x[None,:, :]
     pref = (torch.linalg.vector_norm(diff, dim=2, keepdim=True)**2 + s) ** -(3/2)
     return pref * diff
- 
+
     
 def matern(x, y, s): # nu = 3/2
     r = ((x - y) ** 2).sum(axis=-1)
@@ -113,7 +114,7 @@ def emb_const(kern, s):
         return prefactor.item()
 
 # see Ex. 4 in Modeste, Dombry: https://hal.science/hal-03855093
-# These kernels metrizes the W2-metric,
+# These kernels metrize the W2-metric,
 # but are not differentiable, not translation-invariant and not bounded   
 def W2_1(x, y, s):
     return gauss(x, y, s) + (torch.abs(x) * torch.abs(y)).sum(axis=-1)

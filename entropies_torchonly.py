@@ -79,22 +79,6 @@ class entr_func:
         self.conj_der = conj_der
         self.prox = prox
         self.reces = reces
- 
-       
-# div.prox takes inputs of the type (torch.Tensor, torch.double, torch.double)
-# todo: state this for the other functions as well
-
-'''
-def prox_finder(entr, a, eta, x):
-    def obj(y, eta):
-        return entr.fnc(y)  + 1/(2*eta) * torch.norm(x - y)**2
-    return my_L_BFGS_B(x, obj, low=torch.tensor([0], device=my_device), high = torch.tensor([1e10], device=my_device))
-    
-def tight_dual(entr, a,  eta, h):
-    def obj(lambd):
-        return 1 / h.shape[0] * torch.sum(entr.conj(h + lambd)) - lambd
-    return my_L_BFGS_B(x, obj, low = torch.tensor([-float('inf')], device=my_device), high = (torch.max(h) + entr.reces) * torch.ones(h.shape[0], device=my_device))
-'''   
 
 # the conjugate f_a* of the entropy function f_a for a > 1
 def tsallis_conj(x, a):

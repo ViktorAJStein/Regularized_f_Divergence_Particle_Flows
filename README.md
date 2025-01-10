@@ -62,6 +62,7 @@ This script requires the following Python packages. We tested the code with Pyth
 * matplotlib 3.8.2
 * pot 0.9.3 (if you want to evaluate the exact Wasserstein-2 loss along the flow)
 * sklearn.datasets 1.4.1.post1 (for more targets)
+* https://github.com/gmgeorg/torchlambertw/
 
 Usually code is also compatible with some later or earlier versions of those packages.
 
@@ -124,22 +125,25 @@ The following entropy functions each have an infinite recession constant if $\al
 
 Entropy              | Name                       | Expression \$f(x)\$ for \$x \ge 0\$
 ---------------------| ---------------------------| ----------------------------------------------
-Kullback-Leibler     | `tsallis`, \$\alpha = 1\$  | \$x \ln(x) - x + 1\$ for \$x > 0\$.
-Tsallis-$`\alpha`$   | `tsallis`                  | \$\frac{1}{\alpha - 1} \left( x^{\alpha} - \alpha x + \alpha - 1 \right)\$
+Kullback-Leibler     | `tsa`, \$\alpha = 1\$      | \$x \ln(x) - x + 1\$ for \$x > 0\$.
+Tsallis-$`\alpha`$   | `tsa`                      | \$\frac{1}{\alpha - 1} \left( x^{\alpha} - \alpha x + \alpha - 1 \right)\$
 Jeffreys             | `jeffreys`                 | \$(x - 1) \ln(x)\$ for \$x > 0\$
-$`\chi^{\alpha}`$    | `chi`                      | \$\| x - 1 \|^{\alpha}\$
+$`\chi^{\alpha}`$    | `chi_entr`                 | \$\| x - 1 \|^{\alpha}\$
 
 Below we list some other implemented entropy functions with finite recession constant. For even more entropy functions we refer to table 1 in the above mentioned preprint.
 
-Entropy              | Name             | Expression $f(x)$ for $x \ge 0$
----------------------| -----------------| ----------------------------------------------
-Burg                 | `reverse_kl`     | $x - 1 - \ln(x)$ for $x > 0$
-Jensen-Shannon       | `jensen_shannon` | $\log(x) - (x + 1) \ln\left(\frac{x+1}{2}\right)$ for $x > 0$
-total variation      | `tv`             | $\| x - 1 \|$
-Matusita             | `matusita`       | $\|1 - x^{\alpha} \|^{\frac{1}{\alpha}}$
-Kafka                | `kafka`          | $\|1 - x \|^{\frac{1}{\alpha}} (1 + x)^{\frac{\alpha - 1}{\alpha}}$
-Marton               | `marton`         | $\max(1 - x, 0)^2$
-perimeter            | `perimeter`      | $\frac{\text{sign}(\alpha)}{1 - \alpha}\left( (x^{\frac{1}{\alpha}} + 1)^{\alpha} - 2^{\alpha - 1}(x + 1)\right)$
+Entropy              | Name                 | Expression $f(x)$ for $x \ge 0$
+---------------------| ---------------------| ----------------------------------------------
+Burg                 | `reverse_kl`         | $x - 1 - \ln(x)$ for $x > 0$
+Jensen-Shannon       | `jensen_shannon`     | $\log(x) - (x + 1) \ln\left(\frac{x+1}{2}\right)$ for $x > 0$
+total variation      | `tv`                 | $\| x - 1 \|$
+Matusita             | `matusita`           | $\|1 - x^{\alpha} \|^{\frac{1}{\alpha}}$
+Kafka                | `kafka`              | $\|1 - x \|^{\frac{1}{\alpha}} (1 + x)^{\frac{\alpha - 1}{\alpha}}$
+Marton               | `marton`             | $\max(1 - x, 0)^2$
+perimeter            | `per`                | $\frac{\text{sign}(\alpha)}{1 - \alpha}\left( (x^{\frac{1}{\alpha}} + 1)^{\alpha} - 2^{\alpha - 1}(x + 1)\right)$
+equality indicator   | 'equality_indicator' | $\iota_{1}$
+zero                 | 'zero'               | $0$
+Lindsay              | 'lind'               | $\frac{(x - 1)^2}{a + (1 - a) x}$
 
 Supported targets
 ---------------------------

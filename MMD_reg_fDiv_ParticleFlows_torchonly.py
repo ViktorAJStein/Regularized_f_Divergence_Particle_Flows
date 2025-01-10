@@ -13,19 +13,20 @@ from data_generation import *
 from backtracking import *
 # from torch.profiler import profile, record_function, ProfilerActivity
 import time
+from tqdm import tqdm
 
 torch.set_default_dtype(torch.float64)  # set higher precision
 my_device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 def MMD_reg_f_div_flow(
-        a=4.0,  # divergence parameter
+        a=2,  # divergence parameter
         s=.1,  # kernel parameter
-        N=9000,  # number of prior particles
-        M=9000,  # number of target particles
+        N=300,  # number of prior particles
+        M=300,  # number of target particles
         lambd=.01,  # regularization
-        step_size=.001,  # step size for Euler forward discretization
-        max_time=50.0,  # maximal time horizon for simulation
+        step_size=.01,  # step size for Euler forward discretization
+        max_time=10.0,  # maximal time horizon for simulation
         plot=True,  # plot particles along the evolution
         arrows=False,  # plots arrows at particles to show their gradients
         timeline=True,  # plots timeline of functional value along the flow
@@ -59,7 +60,7 @@ def MMD_reg_f_div_flow(
     gap_tol, relative_gap_tol = 1e-2, 1e-2
     pseudo_gap_tol, relative_pseudo_gap_tol = 1e-2, 1e-2
     max_iter_FFBS = 50
-
+    
     if tight and div.reces(a) != float('Inf'):
         raise Exception('Tight variational formulation only available for entropy function with infinite recession constant')
 
@@ -125,7 +126,7 @@ def MMD_reg_f_div_flow(
     kyy_norm = torch.norm(kyy)
 
     snapshots = 1e2*np.arange(1, 10)
-    for n in range(iterations):
+    for n in tqdm(range(iterations)):
         spread[n] = (X-X.mean(dim=0)).norm(dim=1).mean() # 1st moment of X
 
         # plot the particles
@@ -312,7 +313,8 @@ def MMD_reg_f_div_flow(
                         y_tmp = y - K @ y / K_norm
                         q = torch.cat((
                             div.prox(y_tmp[:M+1], a, lambd * M / K_norm),
-                            y_tmp[M+1:] - div.reces(a) * lambd * M / K_norm))
+                            torch.maximum(torch.tensor(-M/N), y_tmp[M+1:] - div.reces(a) * lambd * M / K_norm)
+                            ))
                     else:
                         y_tmp = y - 1 / K_norm * kyy @ y + M / (N * K_norm) * row_sum_kyx
                         eta = lambd * M / K_norm
@@ -328,9 +330,9 @@ def MMD_reg_f_div_flow(
             primal_values[n] = prim_value + 1 / (2 * lambd * N**2) * sum_kxx
             if save_opts and not n % 1e5:
                 torch.save(q, f'{folder_name}/q_at_{n}.pt')
-
         if div.reces(a) != float('inf'):
             dual_obj = dual_objective_fin_rec
+            primal_obj = primal_objective_fin_rec
         else:
             if tight:
                 dual_obj = tight_dual_objective
@@ -372,11 +374,10 @@ def MMD_reg_f_div_flow(
         # calculate (pseudo) duality gaps
         if dual and not primal:
             pseudo_primal_solver = - lambd * M * b
-            pseudo_dual_values[n] = primal_objective(pseudo_primal_solver) + 1 / (2 * lambd * N**2) * sum_kxx
+            pseudo_dual_values[n] = primal_obj(pseudo_primal_solver) + 1 / (2 * lambd * N**2) * sum_kxx
         if primal:
             pseudo_dual_solver = - 1 / (lambd * M) * q
             pseudo_primal_values[n] = - dual_obj(pseudo_dual_solver) + 1 / (2 * lambd * N**2) * sum_kxx
-
         if primal and dual:  # calculate duality gaps
             duality_gaps[n] = torch.abs(dual_values[n] - primal_values[n])
             relative_duality_gaps[n] = duality_gaps[n] / (torch.min(primal_values[n], dual_values[n])+1e-10)
@@ -421,6 +422,7 @@ def MMD_reg_f_div_flow(
         if dual and not primal:
             q = pseudo_primal_solver
         # kern_der(X, Z, s).shape = (M + N, N, 2)
+        assert torch.isfinite(q).all
         if div.reces(a) != float('inf'):
             temp = q.view(M+N, 1, 1) * kern_der(X, Z, s)
         else:
@@ -438,7 +440,7 @@ def MMD_reg_f_div_flow(
             torch.save(Y, f'{folder_name}/Y_at_{n}.pt')
         cond3 = Dfnulambda_grad < 1e-3
         if cond3:
-            print(f'time derivative of the objective = {Dfnulambda_grad.item()} < 1e-6. Stopping iteration')
+            print(f'time derivative of the objective = {Dfnulambda_grad.item():.4f} < 1e-3. Stopping iteration')
             break
     # save results and plot time lines
     suffix = f'timeline,{lambd},{step_size},{N},{M},{kernel},{s},{max_time},{target_name}'
@@ -477,15 +479,15 @@ def MMD_reg_f_div_flow(
 
 
 _, _, _, spread= MMD_reg_f_div_flow(tight=False)
-_, _, _, spread_tight= MMD_reg_f_div_flow(tight=True)
-fig, ax = plt.subplots()
-plt.plot(range(len(spread))[100:], spread[100:], label='non-tight')
-plt.plot(range(len(spread))[100:], spread_tight[100:], label='tight')
-plt.xlabel('iterations')
-plt.ylabel(r'$|\mathbb{E}[|X - \mathbb{E}[X] |]|$')
-plt.legend()
-plt.yscale('log')
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-plt.gca().yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8)))
-plt.savefig('spread_tight_vs_non-tight.png', dpi=300, bbox_inches='tight')
+# _, _, _, spread_tight= MMD_reg_f_div_flow(tight=True)
+# fig, ax = plt.subplots()
+# plt.plot(range(len(spread))[100:], spread[100:], label='non-tight')
+# plt.plot(range(len(spread))[100:], spread_tight[100:], label='tight')
+# plt.xlabel('iterations')
+# plt.ylabel(r'$|\mathbb{E}[|X - \mathbb{E}[X] |]|$')
+# plt.legend()
+# plt.yscale('log')
+# ax.spines['top'].set_visible(False)
+# ax.spines['right'].set_visible(False)
+# plt.gca().yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=(0.2, 0.4, 0.6, 0.8)))
+# plt.savefig('spread_tight_vs_non-tight.png', dpi=300, bbox_inches='tight')

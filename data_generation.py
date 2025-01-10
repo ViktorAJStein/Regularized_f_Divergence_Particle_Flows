@@ -2,12 +2,13 @@ import numpy as np
 import torch
 from sklearn import datasets
 
+
 def generate_prior_target(N, M, st, target):
     targets = ['circles', 'cross', 'bananas', 'GMM', 'four_wells', 'circles', 'moons', 'swiss_roll_2d', 'swiss_roll_3d', 's_curve', 'annulus', 'low_dim_gaussian']
     if target in targets:
         return globals().get('generate_' + target)(N, M, st)
     else:
-        raise ValueError("Invalid target specified")
+        raise ValueError("Invalid target specified. Currently, these are implemented: 'circles', 'cross', 'bananas', 'GMM', 'four_wells', 'circles', 'moons', 'swiss_roll_2d', 'swiss_roll_3d', 's_curve', 'annulus', 'low_dim_gaussian'")
 
 
 def generate_low_dim_gaussian(N, M, st, d = 2):
@@ -23,6 +24,8 @@ def generate_low_dim_gaussian(N, M, st, d = 2):
 
 
 def generate_four_wells(N, M, st, d = 2):
+    if M % 4:
+        raise Exception(f'M must be divisible by 4, but M = {M}')
     quarterM = int(M/4)
     m1 = 1/2*torch.ones(d)
     M1 = torch.tensor([[1.0, 0.0], [0.0, -1.0]])
@@ -62,7 +65,7 @@ def generate_GMM(N, M, st, d = 2):
     return target, prior
 
 
-def neals_funnel(N, M, st=314):
+def neals_funnel(M, st=314):
     # Generate samples from Neal's funnel
     rs = np.random.RandomState(st)
     y = rs.normal(0, 2, size=M)

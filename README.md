@@ -88,11 +88,11 @@ target_name| string  | name of the target measure nu
 verbose    | boolean | decide whether to print warnings and information
 compute_W2 | boolean | decide whether to compute W2 dist of particles to target along flow
 save_opts  | boolean | decide whether to save minimizers and gradients along the flow
-st=42      | int      | random state for reproducibility
+st         | int      | random state for reproducibility
 annealing  | boolean  | decide wether to use the annealing heuristic
 annealing_factor | int | factor by which to divide lambda
 tight      | boolean  |  decide whether to use the tight variational formulation
-line_search| string   | step size choice for the exponetial GD for the tight formulation
+line_search| string   | step size choice for the exponetial GD for the tight formulation, either 'const', 'armijo', 'Polyak' or 'two_way'
 
 Supported kernels
 ---------------------------

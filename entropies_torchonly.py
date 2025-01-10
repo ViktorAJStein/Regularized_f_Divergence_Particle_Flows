@@ -79,6 +79,22 @@ class entr_func:
         self.conj_der = conj_der
         self.prox = prox
         self.reces = reces
+ 
+       
+# div.prox takes inputs of the type (torch.Tensor, torch.double, torch.double)
+# todo: state this for the other functions as well
+
+'''
+def prox_finder(entr, a, eta, x):
+    def obj(y, eta):
+        return entr.fnc(y)  + 1/(2*eta) * torch.norm(x - y)**2
+    return my_L_BFGS_B(x, obj, low=torch.tensor([0], device=my_device), high = torch.tensor([1e10], device=my_device))
+    
+def tight_dual(entr, a,  eta, h):
+    def obj(lambd):
+        return 1 / h.shape[0] * torch.sum(entr.conj(h + lambd)) - lambd
+    return my_L_BFGS_B(x, obj, low = torch.tensor([-float('inf')], device=my_device), high = (torch.max(h) + entr.reces) * torch.ones(h.shape[0], device=my_device))
+'''   
 
 # the conjugate f_a* of the entropy function f_a for a > 1
 def tsallis_conj(x, a):
@@ -127,7 +143,7 @@ def tsallis_rec(a):
     if a >= 1:
         return float('inf')
     elif 0 < a < 1:
-        a / (1 - a)
+        return a / (1 - a)
         
 tsa = entr_func(tsallis, tsallis_der, tsallis_hess, tsallis_conj, tsallis_conj_der, tsallis_prox, tsallis_rec)
                 
@@ -164,7 +180,10 @@ def chi_der(x, a):
 
 def chi_conj(x, a):
     assert a > 1
-    return torch.where(x >= -a, x + (a - 1) * (torch.abs(x) / a)**(a/(a - 1)), - torch.ones(x.shape, device=x.device))
+    result = torch.where(x >= -a, x + (a - 1) * torch.exp(a/(a-1)*torch.log(torch.abs(x)/a+1e-10)), - torch.ones(x.shape, device=x.device))
+    if torch.isinf(result).sum():
+        raise Exception('chi_conj returned inf values')
+    return result
     
 def chi_conj_der(x, a):
     assert a > 1
@@ -173,7 +192,7 @@ def chi_conj_der(x, a):
 def chi_prox(x, a, eta):
     return prox_finder(chi, a, eta, x)
 
-chi = entr_func(chi, chi_der, None, chi_conj, chi_conj_der, chi_prox, lambda a: float('inf'))
+chi_entr = entr_func(chi, chi_der, None, chi_conj, chi_conj_der, chi_prox, lambda a: float('inf'))
 
   
 # divergences with non-finite conjugates    
@@ -201,7 +220,7 @@ lind = entr_func(lindsay, lindsay_der, lindsay_hess, lindsay_conj, lindsay_conj_
 
 def perimeter(x, a):
     if a == 1:
-        return jensen_shannon(x, a)
+        return js(x, a)
     elif a == 0:
         return 1/2*tv(x, a)
     else:
@@ -217,7 +236,7 @@ def perimeter_der(x, a):
         
 def perimeter_conj(x, a):
     h_a = (1 - a) / np.sign(a) * x + 2**(a - 1)
-    return torch.where(x < rec_const(perimeter, a), x - np.sign(a) / (1 - a) * (h_a**(a/(a-1)) - 2**(a - 1)) * (h_a**(1/(a - 1)) - 1)**(-a) + np.sign(a)/(1 - a) * 2**(a - 1), torch.tensor(float("Inf"), device=x.device))
+    return torch.where(x < rec_const('perimeter', a), x - np.sign(a) / (1 - a) * (h_a**(a/(a-1)) - 2**(a - 1)) * (h_a**(1/(a - 1)) - 1)**(-a) + np.sign(a)/(1 - a) * 2**(a - 1), torch.tensor(float("Inf"), device=x.device))
 
 def perimeter_prox(x, a, eta):
     return prox_finder(perimeter, a, eta, x)
@@ -268,15 +287,15 @@ def js_hess(x, a):
     return - 1 / x**2 - 1/(1 + x)
     
 def js_conj(x, a):
-    return torch.where(x < torch.log(2), - torch.log(2 - torch.exp(x)), torch.tensor(float("Inf"), device=x.device))
+    return torch.where(x < torch.tensor(np.log(2)), - torch.log(torch.tensor(np.log(2)) - torch.exp(x)), torch.tensor(float("Inf"), device=x.device))
     
 def js_conj_der(x, a):
-    return torch.where(x < torch.log(2), torch.exp(x) / (2 - torch.exp(x) ), torch.tensor(float("Inf"), device=x.device)) 
+    return torch.where(x < torch.tensor(np.log(2)), torch.exp(x) / (torch.tensor(np.log(2)) - torch.exp(x) ), torch.tensor(float("Inf"), device=x.device)) 
     
 def js_prox(x, a, eta):
     return prox_finder(js, a, eta, x)
      
-jensen_shannon = entr_func(js, js_der, js_hess, js_conj, js_conj_der, js_prox, lambda a: torch.log(2))
+jensen_shannon = entr_func(js, js_der, js_hess, js_conj, js_conj_der, js_prox, lambda a: torch.tensor(np.log(2)))
 
 # TODO: convert them to torch!
 '''
@@ -335,10 +354,10 @@ def tv(x, a):
     return torch.where(x >= 0, torch.abs(x - 1), torch.tensor(float("Inf"), device=x.device))
     
 def tv_conj(y, a):
-    return torch.where(y <= 1, torch.max(y, -1), torch.tensor(float("Inf"), device=y.device))
+    return torch.where(y <= 1, torch.max(y, torch.tensor(-1.0)), torch.tensor(float("Inf"), device=y.device))
   
 def tv_prox(x, a, eta):
-    return torch.where(x + eta >= 0, torch.nn.Softshrink(lambd=eta)(x-1), 0)
+    return torch.where(x + eta >= 0, torch.nn.Softshrink(lambd=eta)(x-eta), 0)
     
 tv = entr_func(tv, None, None, tv_conj, None, tv_prox, lambda a: 1)
   

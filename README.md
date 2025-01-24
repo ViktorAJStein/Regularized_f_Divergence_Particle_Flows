@@ -22,9 +22,9 @@ used to produce the numerical experiments for the paper
 
 If you use this code please cite this preprint, preferably like this:
 ```
-@unpublished{NSSR24,
- author = {Neumayer, Sebastian and Stein, Viktor and Steidl, Gabriele and Rux, Nicolaj},
- title = {Wasserstein Gradient Flows for {M}oreau Envelopes of $f$-Divergences in Reproducing Kernel {H}ilbert Spaces},
+@unpublished{SNRS24,
+ title={Wasserstein gradient flows for {M}oreau envelopes of $f$-divergences in reproducing kernel {H}ilbert spaces},
+ author={Stein, Viktor and Neumayer, Sebastian and Rux, Nicolaj and Steidl, Gabriele},
  note = {ArXiv preprint},
  volume = {arXiv:2402.04613},
  year = {2024},

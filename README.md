@@ -30,7 +30,7 @@ If you use this code please cite this preprint, preferably like this:
  year = {2024},
  month = {Feb},
  url = {https://arxiv.org/abs/2402.04613},
- doi = {10.48550/arXiv.2402.04613}
+ doi = {10.1142/S0219530525500162}
  }
 ```
 
